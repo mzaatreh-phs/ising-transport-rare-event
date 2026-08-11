@@ -1,0 +1,24 @@
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=2 replicas=20 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0634
+   milestones: [-0.72985046 -0.7775011  -0.82515173 -0.87280237 -0.920453   -0.96810364
+ -1.01575427 -1.06340491]
+[1/3] Collecting training data and computing milestone labels...
+   loaded cached labels from .label_cache/labels_ea_L16_T2.6_b2_n2500.npz
+   labels: mean=0.5180 sd=0.1095 range=[0.2244,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0198  [4.7s]
+   epoch 10/20  MSE=0.9566  [9.3s]
+   epoch 15/20  MSE=0.8075  [14.0s]
+   epoch 20/20  MSE=0.6646  [18.6s]
+   training done [18.6s]
+[3/3] Running head-to-head...
+   naive        pi=6.548e-06  rel.sd=0.485  cost=1.34e+08  FOM=3.168e-08  zeros=0/20  [169.2s]
+   WE[m]      pi=7.704e-06  rel.sd=0.920  cost=2.12e+08  FOM=5.570e-09  zeros=4/20  [413.2s]
+   WE[E]      pi=6.649e-06  rel.sd=0.518  cost=5.45e+08  FOM=6.843e-09  zeros=0/20  [1179.6s]
+   WE[I_theta] pi=5.853e-06  rel.sd=0.763  cost=6.93e+08  FOM=2.477e-09  zeros=0/20  [3491.2s]
+
+Results saved to results_milestone_beyond2_r20.json
+Total wall time: 3491.2s

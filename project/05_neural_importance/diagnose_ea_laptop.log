@@ -1,0 +1,31 @@
+model=ea L=12 T=2.6 preset=laptop
+
+   pilot saw 25,600 samples, extreme = -1.1250
+   calibrated target (2 step(s) beyond pilot extreme): E/N <= -1.1806
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+training I_theta (same procedure as the main script) ...
+   training set: 900 configs; label (best reached) mean=0.8843 sd=0.0479 range=[0.787,1.097]  [2s]
+   epoch 3/12  MSE=0.9586 (1.0 = predicting the mean)  [6s]
+   epoch 6/12  MSE=0.9318 (1.0 = predicting the mean)  [6s]
+   epoch 9/12  MSE=0.8793 (1.0 = predicting the mean)  [7s]
+   epoch 12/12  MSE=0.8296 (1.0 = predicting the mean)  [8s]
+
+collecting an independent evaluation set ...
+
+evaluation set: 1208 configs, E/N in [-1.097, -0.431]
+
+--- Is I_theta just energy? ---
+  Pearson  corr(I_theta, E/N) = -0.6251
+  Spearman corr(I_theta, E/N) = -0.5525
+  Pearson  corr(I_theta, |m|) = -0.0132   (sanity: should be weak for ea)
+  fraction of Var(I_theta) NOT explained by E/N = 0.6093
+
+--- Within a narrow energy shell (E/N = -0.986 +/- 0.02) ---
+  shell population: 40 configs
+  too few configs in the shell to judge; rerun with a wider --shell-width or a larger preset.
+
+--- verdict ---
+  I_theta carries substantial information beyond energy. If it
+  still does not beat WE[E] in sampling, the problem is the
+  weight-window schedule (bin range / walkers per bin), not the map.

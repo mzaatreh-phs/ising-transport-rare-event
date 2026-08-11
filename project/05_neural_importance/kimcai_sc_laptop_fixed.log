@@ -1,0 +1,35 @@
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=12  T=2.6 (Tc=2.269)  preset=laptop  replicas=6  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = -1.1250, bulk mean = -0.7189
+   ladder spans E/N -0.5061 -> -1.1528
+   calibrated target (1 step(s) beyond pilot extreme): E/N <= -1.1528
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+[1/2] learning I_theta(s) (objective=selfconsistent) ...
+   training set: 900 configs, 13 already in the target, 34 boundary-anchor states force-included (needed a longer collection pass), 111 bulk-anchor states  [2s]
+   epoch 3/12  mean self-consistency residual^2=17.214438  [63s]
+   epoch 6/12  mean self-consistency residual^2=14.035365  [125s]
+   epoch 9/12  mean self-consistency residual^2=10.430556  [184s]
+   epoch 12/12  mean self-consistency residual^2=8.675160  [244s]
+   trained ln I(s) over the training set: mean=-3.9426 sd=0.2930 range=[-4.560,-2.077]
+      done [244s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
+   naive        pi=1.116e-05  rel.sd=0.894  cost=1.61e+07  FOM=7.750e-08  zero-replicas=2/6  [247s]
+   WE[m]        pi=0.000e+00  rel.sd=inf  cost=5.97e+06  FOM=0.000e+00  zero-replicas=6/6  [248s]
+   WE[E]        pi=1.305e-05  rel.sd=2.449  cost=2.07e+07  FOM=8.057e-09  zero-replicas=5/6  [252s]
+   WE[I_theta]  pi=1.020e-05  rel.sd=1.766  cost=1.81e+07  FOM=1.774e-08  zero-replicas=4/6  [258s]
+
+--- summary (FOM relative to the Phase-2 baseline WE[m]) ---
+   naive        FOM=7.750e-08   x     nan vs WE[m]
+   WE[m]        FOM=0.000e+00   x     nan vs WE[m]
+   WE[E]        FOM=8.057e-09   x     nan vs WE[m]
+   WE[I_theta]  FOM=1.774e-08   x     nan vs WE[m]
+
+Interpretation: for 'ferro', m is already a good coordinate, so the learned map need only match it.
+For 'ea' (spin glass) m is useless -- that is where a learned importance map should win.
+NOTE: methods with zero-replicas failed to observe the event at all in some replicas;
+their FOM is not meaningful -- that IS the failure mode being demonstrated.
+
+saved results_kimcai_sc_laptop_fixed_ea_L12_laptop_selfconsistent.json   total wall time 258s

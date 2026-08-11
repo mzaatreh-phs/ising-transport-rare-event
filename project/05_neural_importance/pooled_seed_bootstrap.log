@@ -1,0 +1,27 @@
+seed0            FOM[I_theta]=8.941e-08  FOM[E]=4.215e-08  ratio=2.1213  (+112.1%)
+unseeded_run2    FOM[I_theta]=3.484e-08  FOM[E]=4.215e-08  ratio=0.8267  (-17.3%)
+seed1            FOM[I_theta]=3.092e-08  FOM[E]=4.215e-08  ratio=0.7335  (-26.6%)
+seed2            FOM[I_theta]=4.654e-08  FOM[E]=4.215e-08  ratio=1.1043  (+10.4%)
+seed3            FOM[I_theta]=2.291e-08  FOM[E]=4.215e-08  ratio=0.5435  (-45.7%)
+seed4            FOM[I_theta]=8.814e-08  FOM[E]=4.215e-08  ratio=2.0913  (+109.1%)
+seed5            FOM[I_theta]=7.654e-08  FOM[E]=4.215e-08  ratio=1.8160  (+81.6%)
+seed6            FOM[I_theta]=6.560e-08  FOM[E]=4.215e-08  ratio=1.5564  (+55.6%)
+seed7            FOM[I_theta]=2.028e-08  FOM[E]=4.215e-08  ratio=0.4811  (-51.9%)
+seed8            FOM[I_theta]=7.856e-08  FOM[E]=4.215e-08  ratio=1.8639  (+86.4%)
+seed9            FOM[I_theta]=5.656e-08  FOM[E]=4.215e-08  ratio=1.3418  (+34.2%)
+seed10           FOM[I_theta]=5.850e-08  FOM[E]=4.215e-08  ratio=1.3880  (+38.8%)
+seed11           FOM[I_theta]=3.482e-08  FOM[E]=4.215e-08  ratio=0.8262  (-17.4%)
+seed12           FOM[I_theta]=2.760e-08  FOM[E]=4.215e-08  ratio=0.6549  (-34.5%)
+seed13           FOM[I_theta]=6.364e-08  FOM[E]=4.215e-08  ratio=1.5099  (+51.0%)
+seed14           FOM[I_theta]=6.762e-08  FOM[E]=4.215e-08  ratio=1.6044  (+60.4%)
+seed15           FOM[I_theta]=2.655e-08  FOM[E]=4.215e-08  ratio=0.6299  (-37.0%)
+
+n_seeds=17  mean(point ratios)=1.2408  median=1.3418  sd=0.5564
+
+Two-level bootstrap, aggregate=geometric-mean-of-ratios, N=10000 valid draws:
+  median=1.1949  95% CI=[0.8388, 1.7501]
+  excludes 1.0 (no-difference)? NO
+
+Two-level bootstrap, aggregate=median-of-ratios, N=10000 valid draws:
+  median=1.1964  95% CI=[0.7409, 1.8527]
+  excludes 1.0 (no-difference)? NO

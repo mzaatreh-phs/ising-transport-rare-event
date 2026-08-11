@@ -1,0 +1,14 @@
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=16  T=2.6 (Tc=2.269)  preset=full  replicas=10  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0469
+   calibrated target (0 step(s) beyond pilot extreme): E/N <= -1.0469
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+[1/2] learning I_theta(s) (objective=selfconsistent) ...
+   training set: 2500 configs, 0 already in the target, 0 boundary-anchor states force-included (needed a longer collection pass), 329 bulk-anchor states  [1s]
+   WARNING: no training state and no single-spin-flip neighbour of one ever reaches the target,
+            even after a longer collection pass. The boundary condition I=1 never fires, so the
+            self-consistency loss cannot rule out the trivial constant solution I(s)=c.
+            Try a smaller --beyond or larger --L before trusting this run.

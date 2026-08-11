@@ -1,0 +1,62 @@
+{
+  "config": {
+    "L": 16,
+    "T": 2.6,
+    "R": 10,
+    "n_bins": 22,
+    "n_per_bin": 10,
+    "tau": 4,
+    "we_iter": 1000,
+    "we_burn": 200,
+    "naive_chains": 150,
+    "naive_sweeps": 3500,
+    "collect_iter": 200,
+    "collect_walkers": 128,
+    "n_train": 2500,
+    "n_roll": 8,
+    "roll_K": 10,
+    "epochs": 20,
+    "batch": 128,
+    "lr": 0.002,
+    "channels": 24
+  },
+  "objective": "surrogate",
+  "model": "ea",
+  "L": 16,
+  "T": 2.6,
+  "thresh": -1.0625,
+  "rows": [
+    {
+      "method": "naive",
+      "mean": 1.0000000000000003e-05,
+      "rel_sd": 0.6329333980119645,
+      "cost": 134400000.0,
+      "fom": 1.857311320754718e-08,
+      "zeros": 1
+    },
+    {
+      "method": "WE[m]",
+      "mean": 1.0156825614516558e-05,
+      "rel_sd": 1.8571397657573963,
+      "cost": 37151744.0,
+      "fom": 7.804257955460803e-09,
+      "zeros": 7
+    },
+    {
+      "method": "WE[E]",
+      "mean": 1.6473911647527064e-05,
+      "rel_sd": 1.1148669767065267,
+      "cost": 160896000.0,
+      "fom": 5.000444940971149e-09,
+      "zeros": 2
+    },
+    {
+      "method": "WE[I_theta]",
+      "mean": 1.3655023638263588e-05,
+      "rel_sd": 1.1038444727382044,
+      "cost": 141858816.0,
+      "fom": 5.7853267765637135e-09,
+      "zeros": 2
+    }
+  ]
+}

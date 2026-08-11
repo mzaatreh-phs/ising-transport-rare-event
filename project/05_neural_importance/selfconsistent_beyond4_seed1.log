@@ -1,0 +1,33 @@
+WE budget: n_bins=80  n_per_bin=40  we_iter=3000  we_burn=600  tau=2
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=16  T=2.6 (Tc=2.269)  preset=full  replicas=10  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   using user-supplied threshold -1.119 (ladder bulk edge -0.5675 from pilot)
+
+[1/2] learning I_theta(s) (objective=selfconsistent) ...
+   training set: 2500 configs, 18 already in the target, 474 boundary-anchor states force-included, 450 bulk-anchor states  [146s]
+   epoch 5/20  mean self-consistency residual^2=8.903586  [1190s]
+   epoch 10/20  mean self-consistency residual^2=0.931096  [2236s]
+   epoch 15/20  mean self-consistency residual^2=0.394549  [3282s]
+   epoch 20/20  mean self-consistency residual^2=0.275771  [4327s]
+   trained ln I(s) over the training set: mean=-5.4040 sd=1.0531 range=[-7.306,-0.048]
+      done [4328s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
+   naive        pi=0.000e+00  rel.sd=inf  cost=1.34e+08  FOM=0.000e+00  zero-replicas=10/10  [4372s]
+   WE[m]        pi=8.675e-08  rel.sd=2.263  cost=9.56e+08  FOM=2.044e-10  zero-replicas=8/10  [4948s]
+   WE[E]        pi=2.690e-07  rel.sd=1.618  cost=1.67e+09  FOM=2.282e-10  zero-replicas=5/10  [6118s]
+   WE[I_theta]  pi=1.735e-07  rel.sd=1.206  cost=3.13e+09  FOM=2.192e-10  zero-replicas=3/10  [11457s]
+
+--- summary (FOM relative to the Phase-2 baseline WE[m]) ---
+   naive        FOM=0.000e+00   x    0.00 vs WE[m]
+   WE[m]        FOM=2.044e-10   x    1.00 vs WE[m]
+   WE[E]        FOM=2.282e-10   x    1.12 vs WE[m]
+   WE[I_theta]  FOM=2.192e-10   x    1.07 vs WE[m]
+
+Interpretation: for 'ferro', m is already a good coordinate, so the learned map need only match it.
+For 'ea' (spin glass) m is useless -- that is where a learned importance map should win.
+NOTE: methods with zero-replicas failed to observe the event at all in some replicas;
+their FOM is not meaningful -- that IS the failure mode being demonstrated.
+
+saved results_selfconsistent_deep_seed1_ea_L16_full_selfconsistent.json   total wall time 11457s

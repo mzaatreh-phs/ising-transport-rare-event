@@ -1,0 +1,14 @@
+Pilot (identical to run_milestone.py)...
+bulk_mean=-0.7299  extreme=-1.0078  bulk_edge=-0.5689  step=0.0278
+
+=== beyond=3  thresh=-1.0912 ===
+   naive        pi=7.143e-07  rel.sd=1.610  FOM=2.870e-09  zeros=7/10  [85.4s]
+   WE[m]      pi=1.362e-06  rel.sd=2.273  FOM=6.097e-10  zeros=8/10  [257.8s]
+   WE[E]      pi=3.308e-07  rel.sd=1.453  FOM=5.812e-10  zeros=6/10  [821.4s]
+   beyond=3 total: 821.4s
+
+=== beyond=4  thresh=-1.1190 ===
+   naive        pi=0.000e+00  rel.sd=inf  FOM=0.000e+00  zeros=10/10  [85.3s]
+   WE[m]      pi=0.000e+00  rel.sd=inf  FOM=0.000e+00  zeros=10/10  [257.3s]
+   WE[E]      pi=1.377e-07  rel.sd=3.162  FOM=1.226e-10  zeros=9/10  [819.5s]
+   beyond=4 total: 819.5s

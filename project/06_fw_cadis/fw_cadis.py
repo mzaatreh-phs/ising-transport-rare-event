@@ -1,0 +1,567 @@
+"""
+fw_cadis.py -- Stage 6: GLOBAL variance reduction across a family of thresholds.
+
+This is the novelty the Phase-1 memo identified and nothing in the project (or,
+per the prior-art recheck, in Kim & Cai) has built: not "sample one rare event
+well", but "produce ONE importance map that gives CONTROLLED RELATIVE ERROR
+ACROSS A WHOLE FAMILY of rare thresholds at once" -- the entire tail / rate
+function, not a single point on it.
+
+WHY THIS IS DIFFERENT FROM STAGES 4-5
+    Stage 4/5 pick one target (|m| >= m*, or E/N <= e*) and optimise for it. The
+    resulting weight-window ladder is tuned to that depth: it over-serves the
+    bulk and under-serves anything deeper. Ask it for five thresholds and you get
+    five separate runs, or one run whose relative error explodes with depth.
+
+    Transport solved this in 2014 (FW-CADIS, Wagner-Peplow-Mosher): weight the
+    adjoint source by the INVERSE of the local forward response, so that every
+    region is sampled to comparable RELATIVE precision rather than comparable
+    absolute weight. Rare regions get proportionally more effort, exactly enough
+    to equalise relative error.
+
+THE TRANSLATION IMPLEMENTED HERE
+    Forward response at coordinate bin b  ->  R(b) ~ P(b), the equilibrium
+    probability of that bin (estimated cheaply from a pilot).
+    FW-CADIS weighting                    ->  allocate walkers per bin
+                                              proportional to 1/R(b), normalised.
+    Result                                ->  a single ladder whose per-bin
+                                              relative error is flat in depth.
+
+    Concretely: instead of a FIXED n_per_bin (Stage 4/5's uniform allocation),
+    each bin b gets n_b walkers with n_b proportional to a power of 1/P(b),
+    controlled by --alpha:
+        alpha = 0  -> uniform allocation      (= the Stage 4/5 baseline)
+        alpha = 1  -> full FW-CADIS inverse-response weighting
+    so the two schemes are the SAME CODE at two settings, which is what makes the
+    comparison fair.
+
+WHAT IT MEASURES
+    The headline metric is NOT a single FOM. It is the SPREAD of relative error
+    across the whole family of thresholds -- specifically max/min and the
+    standard deviation of log relative error over thresholds. FW-CADIS claims to
+    flatten that. A win looks like: similar cost, dramatically flatter error
+    profile, and no threshold left unobserved.
+
+VALIDATION
+    --gate runs L=4 against exact enumeration: EVERY threshold's probability must
+    come back unbiased under both allocations. Weight-conserving split/merge is
+    unbiased for any allocation, so this checks the implementation.
+
+Usage:
+    python3 fw_cadis.py --gate                       # unbiasedness, seconds
+    python3 fw_cadis.py --model ea --preset laptop   # the comparison
+    python3 fw_cadis.py --model ea --preset full --replicas 30 --jobs 8
+"""
+from __future__ import annotations
+import argparse, json, os, sys, time
+from multiprocessing import Pool
+
+import numpy as np
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
+# Stage 5 holds the shared model/dynamics code; add it to the path so this stage
+# reuses exactly the same, already-gated implementations rather than a fork.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "05_neural_importance"))
+from neural_importance import (PRESETS, make_couplings, sweep_population,   # noqa: E402
+                               exact_pi, calibrate_threshold,
+                               progress_value, TC,
+                               train_importance, collect_training_configs, NetCoord)
+
+
+# --------------------------------------------------------------------------- #
+#  pilot: equilibrium profile of the progress coordinate -> the "forward response"
+# --------------------------------------------------------------------------- #
+def pilot_profile(L, T, Jx, Jy, model, edges, n_chains=64, n_sweeps=400, seed=0,
+                  coord=None):
+    """Estimate P(bin) at equilibrium. This is FW-CADIS's forward response R(b).
+
+    `coord`, if given, is the binning coordinate the actual run will use (e.g.
+    a learned NetCoord) -- the profile must be measured in the SAME coordinate
+    as the allocation it feeds, or the inverse-response weighting is computed
+    for the wrong bins. Defaults to the physical progress coordinate."""
+    rng = np.random.default_rng(seed)
+    S = rng.choice([-1.0, 1.0], size=(n_chains, L, L))
+    hist = np.zeros(len(edges) - 1)
+    burn = n_sweeps // 5
+    for it in range(n_sweeps):
+        S = sweep_population(S, T, Jx, Jy, rng)
+        if it >= burn:
+            c = coord(S) if coord is not None else progress_value(S, Jx, Jy, model)
+            b = np.clip(np.digitize(c, edges) - 1, 0, len(edges) - 2)
+            np.add.at(hist, b, 1.0)
+    total = hist.sum()
+    return hist / total if total > 0 else hist
+
+
+def allocation(profile, n_total, alpha, floor=2):
+    """Walkers per bin.
+
+    alpha=0 -> uniform (Stage 4/5 baseline).
+    alpha=1 -> proportional to 1/P(b): FW-CADIS inverse-response weighting.
+    A floor guarantees every bin, including never-visited deep ones, keeps at
+    least a couple of walkers so the ladder cannot develop a gap it can never
+    climb across."""
+    n_bins = len(profile)
+    if alpha <= 0:
+        w = np.ones(n_bins)
+    else:
+        p = np.where(profile > 0, profile, profile[profile > 0].min() if
+                     np.any(profile > 0) else 1.0)
+        w = (1.0 / p) ** alpha
+    w = w / w.sum()
+    n = np.maximum(floor, np.round(w * n_total)).astype(int)
+    return n
+
+
+# --------------------------------------------------------------------------- #
+#  the global weighted-ensemble run: ONE ladder, MANY thresholds tallied at once
+# --------------------------------------------------------------------------- #
+def global_we(L, T, Jx, Jy, model, thresholds, edges, n_per_bin_vec,
+              tau, n_iter, burn, seed, coord=None):
+    """Run one weight-window ladder and tally EVERY threshold simultaneously.
+
+    `coord`, if given, is used for BINNING only (splitting/resampling walkers).
+    Thresholds are always tested against the physical progress coordinate --
+    the target set doesn't change just because the binning coordinate does.
+    Mirrors Stage 5's we_estimate, which keeps its binning `coord` separate
+    from `in_target`; conflating them here would silently redefine what
+    "hitting the threshold" means whenever `coord` is not the identity.
+
+    Returns (pi_hat[len(thresholds)], cost). Because all thresholds are tallied
+    from the same walker population, this is genuinely one run serving a whole
+    family -- which is the point of FW-CADIS."""
+    rng = np.random.default_rng(seed)
+    n_bins = len(edges) - 1
+    S = rng.choice([-1.0, 1.0], size=(int(n_per_bin_vec.mean()) + 2, L, L))
+    w = np.full(len(S), 1.0 / len(S))
+    acc = np.zeros(len(thresholds))
+    n_acc = 0
+    cost = 0
+
+    for it in range(n_iter):
+        for _ in range(tau):
+            S = sweep_population(S, T, Jx, Jy, rng)
+        cost += len(S) * tau * L * L
+        c_phys = progress_value(S, Jx, Jy, model)
+        c_bin = coord(S) if coord is not None else c_phys
+        b = np.clip(np.digitize(c_bin, edges) - 1, 0, n_bins - 1)
+
+        if it >= burn:
+            tot = w.sum()
+            for k, th in enumerate(thresholds):
+                hit = (c_phys >= th)     # progress_value is oriented: larger = closer
+                acc[k] += w[hit].sum() / tot
+            n_acc += 1
+
+        newS, neww = [], []
+        for bi in np.unique(b):
+            sel = np.where(b == bi)[0]
+            Wb = w[sel].sum()
+            if Wb <= 0:
+                continue
+            k = int(n_per_bin_vec[bi])
+            probs = np.clip(w[sel] / Wb, 0, None)
+            probs /= probs.sum()
+            pick = rng.choice(sel, size=k, p=probs)
+            newS.append(S[pick])
+            neww.append(np.full(k, Wb / k))
+        S = np.concatenate(newS)
+        w = np.concatenate(neww); w /= w.sum()
+
+    return acc / max(n_acc, 1), cost
+
+
+def naive_global(L, T, Jx, Jy, model, thresholds, n_chains, n_sweeps, seed):
+    rng = np.random.default_rng(seed)
+    S = rng.choice([-1.0, 1.0], size=(n_chains, L, L))
+    hits = np.zeros(len(thresholds)); n = 0
+    burn = n_sweeps // 5
+    for it in range(n_sweeps):
+        S = sweep_population(S, T, Jx, Jy, rng)
+        if it >= burn:
+            c = progress_value(S, Jx, Jy, model)
+            for k, th in enumerate(thresholds):
+                hits[k] += (c >= th).sum()
+            n += n_chains
+    return hits / max(n, 1), n_chains * n_sweeps * L * L
+
+
+# --------------------------------------------------------------------------- #
+def _job(args):
+    kind, payload, seed = args
+    (L, T, Jx, Jy, model, thresholds, edges, cfg, coord) = payload["static"]
+    if kind == "naive":
+        return naive_global(L, T, Jx, Jy, model, thresholds,
+                            cfg["naive_chains"], cfg["naive_sweeps"], seed)
+    return global_we(L, T, Jx, Jy, model, thresholds, edges,
+                     payload["alloc"], cfg["tau"], cfg["we_iter"],
+                     cfg["we_burn"], seed, coord=coord)
+
+
+def replicas(kind, static, alloc, cfg, R, jobs, base_seed):
+    payload = {"static": static, "alloc": alloc}
+    args = [(kind, payload, base_seed + r) for r in range(R)]
+    if jobs > 1 and R > 1:
+        try:
+            with Pool(min(jobs, R)) as pool:
+                out = pool.map(_job, args)
+        except Exception as exc:
+            print(f"   WARNING: parallel failed ({type(exc).__name__}: {exc}); "
+                  f"running serial", flush=True)
+            out = [_job(a) for a in args]
+    else:
+        out = [_job(a) for a in args]
+    est = np.array([o[0] for o in out])          # (R, n_thresholds)
+    cost = float(np.mean([o[1] for o in out]))
+    return est, cost
+
+
+def error_profile(est):
+    """Per-threshold relative error across replicas, plus flatness summary.
+
+    IMPORTANT metric subtlety, found while testing: a method that fails to
+    observe a deep threshold at all yields rel.err = inf there. If those are
+    simply dropped before computing max/min, the failing method is scored ONLY on
+    the easy thresholds it could see -- and therefore looks FLATTER than a method
+    that successfully reached every threshold with a modest error gradient. That
+    rewards failure. Smoke test showed exactly this: uniform allocation missed
+    the deepest threshold entirely and scored max/min = 30 while FW-CADIS, which
+    reached every threshold, scored 213.
+
+    So flatness is reported over the COMMON set of thresholds that a method
+    actually observed, AND the number of unobserved thresholds is returned
+    alongside it. Coverage is reported first and dominates the verdict: a method
+    that leaves thresholds unobserved has not solved the global problem at all,
+    however flat its error is on the rest."""
+    mean = est.mean(axis=0)
+    sd = est.std(axis=0, ddof=1) if est.shape[0] > 1 else np.full_like(mean, np.nan)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rel = np.where(mean > 0, sd / mean, np.inf)
+    n_missing = int(np.sum(~np.isfinite(rel) | (mean <= 0)))
+    finite = rel[np.isfinite(rel) & (rel > 0)]
+    if len(finite) >= 2:
+        spread = float(finite.max() / finite.min())
+        log_sd = float(np.std(np.log(finite)))
+    else:
+        spread, log_sd = float("nan"), float("nan")
+    return mean, rel, spread, log_sd, n_missing
+
+
+def bootstrap_spread(est, n_boot=1000, seed=0):
+    """Bootstrap CI for the flatness (max/min) metric, resampling the replica
+    axis with replacement. README's own honesty section flags this as missing
+    ('the same discipline [as Stage 5's fom_from] should be applied here
+    before reporting') -- without it, a spread of 298 vs 342 looks like a
+    verdict but could just be replica noise at R=30.
+
+    Returns (median, lo95, hi95) over n_boot resamples; a bootstrap draw with
+    too few finite-error thresholds to compute spread is skipped, not
+    counted as zero."""
+    rng = np.random.default_rng(seed)
+    R = est.shape[0]
+    spreads = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, R, size=R)
+        _, _, spread, _, _ = error_profile(est[idx])
+        if np.isfinite(spread):
+            spreads.append(spread)
+    if len(spreads) < n_boot // 2:
+        return float("nan"), float("nan"), float("nan")
+    spreads = np.array(spreads)
+    return (float(np.median(spreads)), float(np.percentile(spreads, 2.5)),
+            float(np.percentile(spreads, 97.5)))
+
+
+def bootstrap_paired_diff(est_a, est_b, n_boot=1000, seed=0):
+    """Paired bootstrap on spread(est_b) - spread(est_a), resampling the SAME
+    replica indices for both series in each draw.
+
+    This only cancels shared noise if est_a and est_b were actually generated
+    with correlated randomness (common random numbers -- same seed per
+    replica index). It is well known that uniform and FW-CADIS allocate a
+    DIFFERENT number of walkers per bin, so their resampling draws consume
+    the RNG stream differently and desynchronise almost immediately -- CRN
+    here is partial at best (shared initial population, shared pilot/
+    threshold calibration, then rapid divergence once per-bin walker counts
+    differ). Report this as a paired estimate regardless: it is never worse
+    than treating the two series as independent (worst case, correlation ~0
+    and this reduces to the ordinary two-sample difference), and any real
+    correlation it does capture is free variance reduction.
+
+    Returns (median_diff, lo95, hi95); negative = B is FLATTER than A."""
+    rng = np.random.default_rng(seed)
+    R = est_a.shape[0]
+    assert est_b.shape[0] == R, "paired bootstrap needs equal replica counts"
+    diffs = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, R, size=R)
+        _, _, spread_a, _, _ = error_profile(est_a[idx])
+        _, _, spread_b, _, _ = error_profile(est_b[idx])
+        if np.isfinite(spread_a) and np.isfinite(spread_b):
+            diffs.append(spread_b - spread_a)
+    if len(diffs) < n_boot // 2:
+        return float("nan"), float("nan"), float("nan")
+    diffs = np.array(diffs)
+    return (float(np.median(diffs)), float(np.percentile(diffs, 2.5)),
+            float(np.percentile(diffs, 97.5)))
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--model", choices=["ferro", "ea"], default="ea")
+    ap.add_argument("--preset", choices=list(PRESETS), default="laptop")
+    ap.add_argument("--replicas", type=int, default=None)
+    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 1) - 1))
+    ap.add_argument("--n-thresholds", type=int, default=6)
+    ap.add_argument("--alpha", type=float, default=1.0,
+                    help="0 = uniform allocation (baseline), 1 = full FW-CADIS")
+    ap.add_argument("--beyond", type=int, default=1)
+    ap.add_argument("--coord", choices=["progress", "learned"], default="progress",
+                    help="binning coordinate for the ladder: the physical progress "
+                         "value (default, what stages 4-6 have always used), or a "
+                         "learned I_theta trained the same way as Stage 5 -- the "
+                         "'FW-CADIS + learned map' combination the README calls the "
+                         "strongest version of the claim. Thresholds are ALWAYS "
+                         "tested against the physical coordinate regardless of this "
+                         "setting; only the walker binning changes.")
+    ap.add_argument("--gate", action="store_true")
+    ap.add_argument("--out", default="results_fwcadis")
+    a = ap.parse_args()
+
+    cfg = dict(PRESETS[a.preset])
+    if a.replicas:
+        cfg["R"] = a.replicas
+    L, T, R = cfg["L"], cfg["T"], cfg["R"]
+
+    # ------------------------------------------------------------------ gate
+    if a.gate:
+        L4, T4 = 4, 2.6
+        Jx4, Jy4 = make_couplings(L4, a.model, seed=12345)
+        ths = ([0.5, 0.75, 1.0] if a.model == "ferro" else [-1.25, -1.0, -0.75])
+        # progress_value orientation: ferro |m|, ea -E/N
+        prog_ths = ths if a.model == "ferro" else [-t for t in ths]
+        edges = np.linspace(0.0, 1.0, 9) if a.model == "ferro" \
+            else np.linspace(0.0, 2.0, 9)
+        print(f"[GATE] L=4 {a.model} T={T4}: exact vs global-WE, every threshold")
+        prof = pilot_profile(L4, T4, Jx4, Jy4, a.model, edges, seed=5)
+        for alpha in (0.0, 1.0):
+            alloc = allocation(prof, n_total=8 * (len(edges) - 1), alpha=alpha)
+            est, _ = global_we(L4, T4, Jx4, Jy4, a.model, prog_ths, edges,
+                               alloc, tau=3, n_iter=1500, burn=300, seed=7)
+            label = "uniform (alpha=0)" if alpha == 0 else "FW-CADIS (alpha=1)"
+            print(f"  {label}")
+            for th, e in zip(ths, est):
+                ex = exact_pi(L4, T4, Jx4, Jy4, a.model, th)
+                r = e / ex if ex > 0 else float("nan")
+                print(f"     thresh={th:+.3f}  exact={ex:.4e}  WE={e:.4e}  ratio={r:.3f}")
+        print("  (both allocations must be unbiased -- weight-conserving split/merge)")
+
+        # --coord learned exercises a code path the block above never touches
+        # (global_we's coord=None branch): binning by a trained net instead of
+        # progress_value. Weight-conserving split/merge only cares about bin
+        # membership, not what defines it, so unbiasedness should hold for ANY
+        # binning coordinate -- exactly Stage 5's own we_estimate result for
+        # arbitrary coord. Verify that claim explicitly rather than assume it.
+        print(f"\n[GATE] L=4 {a.model} T={T4}: same check, binning by a LEARNED "
+              f"coordinate instead of progress_value")
+        net4 = train_importance(L4, T4, Jx4, Jy4, a.model, prog_ths[-1],
+                                PRESETS["smoke"], seed=456, verbose=False)
+        coord4 = NetCoord(net4)
+        X4 = collect_training_configs(L4, T4, Jx4, Jy4, a.model, prog_ths[-1],
+                                      PRESETS["smoke"]["collect_iter"],
+                                      PRESETS["smoke"]["collect_walkers"],
+                                      np.random.default_rng(789))
+        v4 = coord4(X4)
+        lo4, hi4 = float(v4.min()), float(v4.max())
+        margin4 = 0.05 * (hi4 - lo4) if hi4 > lo4 else 1.0
+        edges4 = np.linspace(lo4 - margin4, hi4 + margin4, 9)
+        prof4 = pilot_profile(L4, T4, Jx4, Jy4, a.model, edges4, seed=5, coord=coord4)
+        for alpha in (0.0, 1.0):
+            alloc4 = allocation(prof4, n_total=8 * (len(edges4) - 1), alpha=alpha)
+            est4, _ = global_we(L4, T4, Jx4, Jy4, a.model, prog_ths, edges4,
+                                alloc4, tau=3, n_iter=1500, burn=300, seed=7,
+                                coord=coord4)
+            label = "uniform, learned bins (alpha=0)" if alpha == 0 \
+                else "FW-CADIS, learned bins (alpha=1)"
+            print(f"  {label}")
+            for th, e in zip(ths, est4):
+                ex = exact_pi(L4, T4, Jx4, Jy4, a.model, th)
+                r = e / ex if ex > 0 else float("nan")
+                print(f"     thresh={th:+.3f}  exact={ex:.4e}  WE={e:.4e}  ratio={r:.3f}")
+        print("  (thresholds are tested against progress_value regardless of "
+              "binning coordinate, so this must ALSO be unbiased)")
+        return
+
+    # -------------------------------------------------------------- real run
+    Jx, Jy = make_couplings(L, a.model, seed=12345)
+    print("=== Stage 6: FW-CADIS global variance reduction ===")
+    print(f"model={a.model} L={L} T={T} (Tc={TC:.3f}) preset={a.preset} "
+          f"replicas={R} jobs={a.jobs}")
+    t0 = time.time()
+
+    print("\n[1/3] calibrating the threshold FAMILY ...")
+    deepest, bulk = calibrate_threshold(L, T, Jx, Jy, a.model,
+                                        beyond=a.beyond, seed=99)
+    # progress-oriented endpoints (larger = closer to target)
+    p_deep = deepest if a.model == "ferro" else -deepest
+    p_bulk = bulk if a.model == "ferro" else -bulk
+    thresholds = np.linspace(p_bulk + 0.25 * (p_deep - p_bulk), p_deep,
+                             a.n_thresholds)
+    print(f"   {a.n_thresholds} thresholds spanning progress "
+          f"{thresholds[0]:.4f} -> {thresholds[-1]:.4f}")
+    print("   (ONE map must serve all of them -- that is the whole point)")
+
+    coord_obj = None
+    if a.coord == "learned":
+        print("\n[1.5/3] training learned coordinate I_theta (same procedure as "
+              "Stage 5) ...")
+        net = train_importance(L, T, Jx, Jy, a.model, deepest, cfg, seed=123)
+        coord_obj = NetCoord(net)
+        # Empirical range of I_theta over configs spanning bulk-to-tail (the same
+        # collection pass train_importance uses for its training set) -- fixed
+        # bin edges for a learned, otherwise-unbounded coordinate must come from
+        # data, not from a physical formula the way progress-value edges do.
+        X_range = collect_training_configs(L, T, Jx, Jy, a.model, deepest,
+                                           cfg["collect_iter"], cfg["collect_walkers"],
+                                           np.random.default_rng(321))
+        net_vals = coord_obj(X_range)
+        lo_c, hi_c = float(net_vals.min()), float(net_vals.max())
+        margin = 0.05 * (hi_c - lo_c) if hi_c > lo_c else 1.0
+        edges = np.linspace(lo_c - margin, hi_c + margin, cfg["n_bins"] + 1)
+        print(f"   I_theta range over {len(X_range)} bulk-to-tail configs: "
+              f"[{lo_c:.4f}, {hi_c:.4f}]")
+    else:
+        lo = min(p_bulk, thresholds[0]) - 0.05 * abs(p_bulk)
+        hi = p_deep + 0.05 * abs(p_deep)
+        edges = np.linspace(lo, hi, cfg["n_bins"] + 1)
+
+    print("\n[2/3] pilot forward-response profile ...")
+    prof = pilot_profile(L, T, Jx, Jy, a.model, edges, seed=11, coord=coord_obj)
+    occupied = int((prof > 0).sum())
+    print(f"   pilot occupies {occupied}/{len(prof)} bins "
+          f"(deep bins empty -> they get the allocation floor)")
+
+    n_total = cfg["n_per_bin"] * cfg["n_bins"]
+    print("\n[3/3] head-to-head: uniform allocation vs FW-CADIS, SAME code ...")
+    static = (L, T, Jx, Jy, a.model, list(thresholds), edges, cfg, coord_obj)
+    results = {}
+    est_by_label = {}
+    # Common random numbers: give BOTH allocations the SAME per-replica seed
+    # (base_seed + r), instead of the old base_seed=2000+alpha*1000 scheme
+    # that made them fully independent. This is a paired-comparison setup --
+    # see bootstrap_paired_diff's docstring for how much correlation it
+    # actually buys (partial, since walkers-per-bin differs by allocation).
+    CRN_BASE_SEED = 5000
+    for label, alpha in (("uniform(a=0)", 0.0), (f"FW-CADIS(a={a.alpha})", a.alpha)):
+        alloc = allocation(prof, n_total, alpha)
+        est, cost = replicas("we", static, alloc, cfg, R, a.jobs,
+                             base_seed=CRN_BASE_SEED)
+        est_by_label[label] = est
+        mean, rel, spread, log_sd, missing = error_profile(est)
+        boot_med, boot_lo, boot_hi = bootstrap_spread(est, seed=hash(label) & 0xFFFF)
+        results[label] = dict(mean=mean.tolist(), rel=rel.tolist(), cost=cost,
+                              spread=spread, log_sd=log_sd, missing=missing,
+                              alloc=alloc.tolist(),
+                              spread_ci=[boot_lo, boot_hi])
+        print(f"\n   {label}: cost={cost:.2e}  walkers/bin "
+              f"min={alloc.min()} max={alloc.max()}")
+        print(f"   {'threshold':>12} {'pi_hat':>12} {'rel.err':>9}")
+        for th, m, r in zip(thresholds, mean, rel):
+            flag = "  <-- UNOBSERVED" if m <= 0 else ""
+            print(f"   {th:12.4f} {m:12.3e} {r:9.3f}{flag}")
+        print(f"   coverage: {len(thresholds)-missing}/{len(thresholds)} thresholds "
+              f"observed; error-flatness over those: max/min = {spread:.2f} "
+              f"(95% CI [{boot_lo:.1f}, {boot_hi:.1f}]), sd(log) = {log_sd:.3f}")
+
+    # naive reference
+    est_n, cost_n = replicas("naive", static, None, cfg, R, a.jobs, base_seed=3000)
+    mean_n, rel_n, spread_n, log_sd_n, missing_n = error_profile(est_n)
+    results["naive"] = dict(mean=mean_n.tolist(), rel=rel_n.tolist(), cost=cost_n,
+                            spread=spread_n, log_sd=log_sd_n, missing=missing_n)
+    print(f"\n   naive: cost={cost_n:.2e}  unobserved thresholds="
+          f"{int((mean_n <= 0).sum())}/{len(thresholds)}  "
+          f"error-flatness max/min = {spread_n:.2f}")
+
+    # ------------------------------------------------------------- verdict
+    print("\n--- verdict: does FW-CADIS flatten the error across the family? ---")
+    u = results["uniform(a=0)"]; f = results[f"FW-CADIS(a={a.alpha})"]
+    print(f"   uniform   : max/min = {u['spread']:.2f} "
+          f"(95% CI [{u['spread_ci'][0]:.1f}, {u['spread_ci'][1]:.1f}]), "
+          f"sd(log) = {u['log_sd']:.3f}, cost = {u['cost']:.2e}")
+    print(f"   FW-CADIS  : max/min = {f['spread']:.2f} "
+          f"(95% CI [{f['spread_ci'][0]:.1f}, {f['spread_ci'][1]:.1f}]), "
+          f"sd(log) = {f['log_sd']:.3f}, cost = {f['cost']:.2e}")
+
+    # Paired comparison (common random numbers, see caveat in
+    # bootstrap_paired_diff's docstring). First check empirically whether the
+    # shared seed bought any real correlation -- if not, say so honestly
+    # rather than presenting a paired CI as if it were free variance
+    # reduction it didn't actually get.
+    est_u = est_by_label["uniform(a=0)"]; est_f = est_by_label[f"FW-CADIS(a={a.alpha})"]
+    finite_mask = np.isfinite(est_u[:, 0]) & np.isfinite(est_f[:, 0]) & \
+                  (est_u[:, 0] > 0) & (est_f[:, 0] > 0)
+    if finite_mask.sum() >= 3:
+        corr = float(np.corrcoef(est_u[finite_mask, 0], est_f[finite_mask, 0])[0, 1])
+    else:
+        corr = float("nan")
+    diff_med, diff_lo, diff_hi = bootstrap_paired_diff(est_u, est_f, seed=42)
+    print(f"\n   paired comparison (common random numbers): corr(pi_hat at "
+          f"shallowest threshold) = {corr:.3f}")
+    if np.isfinite(corr) and abs(corr) < 0.15:
+        print("      -> seed sharing bought ~no measurable correlation here (as the "
+              "docstring warned it might not); the paired CI below is not meaningfully")
+        print("         tighter than the independent one -- treat it as a sanity check, "
+              "not a resolution.")
+    print(f"   FW-CADIS - uniform (spread difference): {diff_med:+.2f} "
+          f"(95% CI [{diff_lo:+.1f}, {diff_hi:+.1f}])")
+    if np.isfinite(diff_lo) and np.isfinite(diff_hi) and diff_lo * diff_hi > 0:
+        sign = "FLATTER" if diff_hi < 0 else "LESS FLAT"
+        print(f"      -> paired 95% CI EXCLUDES ZERO: FW-CADIS is {sign} than uniform, "
+              f"resolved.")
+    else:
+        print("      -> paired 95% CI still includes zero: not resolved even with "
+              "paired analysis.")
+    nT = len(thresholds)
+    print(f"   coverage  : uniform {nT-u['missing']}/{nT},  "
+          f"FW-CADIS {nT-f['missing']}/{nT}  <-- judged FIRST")
+    if f["missing"] < u["missing"]:
+        print("   -> FW-CADIS OBSERVED MORE OF THE FAMILY. Coverage dominates flatness:")
+        print("      a threshold you never observe has infinite error, and a method")
+        print("      scored only on the thresholds it managed to see is flattered by")
+        print("      its own failures. This is the global-VR property doing its job.")
+    elif f["missing"] > u["missing"]:
+        print("   -> FW-CADIS observed FEWER thresholds -- it is spreading effort too")
+        print("      thin. Lower --alpha.")
+    elif np.isfinite(f["spread"]) and np.isfinite(u["spread"]):
+        ci_overlap = f["spread_ci"][0] <= u["spread_ci"][1] and \
+                     u["spread_ci"][0] <= f["spread_ci"][1]
+        if ci_overlap:
+            print("   -> Bootstrap 95% CIs on max/min OVERLAP: the point-estimate gap is")
+            print("      not statistically distinguishable at this replica count. Raise")
+            print("      --replicas, don't read the point estimate as a verdict.")
+        elif f["spread"] < 0.7 * u["spread"]:
+            print("   -> Equal coverage, and FW-CADIS gives a MEASURABLY FLATTER error")
+            print("      profile (CIs don't overlap). This is the global-variance-")
+            print("      reduction claim.")
+        elif f["spread"] < u["spread"]:
+            print("   -> Flatter, and CIs don't overlap, but modestly. Worth reporting")
+            print("      cautiously.")
+        else:
+            print("   -> No flattening at this budget (CIs don't overlap -- FW-CADIS is")
+            print("      measurably WORSE here). Either alpha is mistuned, or the ladder")
+            print("      budget is too small for the deep bins to be served.")
+    print("   NOTE: flatness is the metric here, NOT a single FOM. Comparing one")
+    print("   threshold at a time is exactly what this stage is designed to replace.")
+
+    out = f"{a.out}_{a.model}_L{L}_{a.preset}.json"
+    with open(out, "w") as fh:
+        json.dump(dict(model=a.model, L=L, T=T, thresholds=thresholds.tolist(),
+                       alpha=a.alpha, replicas=R, results=results), fh, indent=2)
+    print(f"\nsaved {out}   wall time {time.time()-t0:.0f}s")
+
+
+if __name__ == "__main__":
+    main()

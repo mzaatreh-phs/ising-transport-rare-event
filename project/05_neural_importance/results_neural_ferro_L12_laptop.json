@@ -1,0 +1,61 @@
+{
+  "config": {
+    "L": 12,
+    "T": 2.6,
+    "R": 6,
+    "n_bins": 16,
+    "n_per_bin": 8,
+    "tau": 4,
+    "we_iter": 400,
+    "we_burn": 80,
+    "naive_chains": 80,
+    "naive_sweeps": 1400,
+    "collect_iter": 90,
+    "collect_walkers": 96,
+    "n_train": 900,
+    "n_roll": 6,
+    "roll_K": 8,
+    "epochs": 12,
+    "batch": 128,
+    "lr": 0.002,
+    "channels": 16
+  },
+  "model": "ferro",
+  "L": 12,
+  "T": 2.6,
+  "thresh": 1.0,
+  "rows": [
+    {
+      "method": "naive",
+      "mean": 3.7202380952380952e-06,
+      "rel_sd": 2.449489742783178,
+      "cost": 16128000.0,
+      "fom": 1.033399470899471e-08,
+      "zeros": 5
+    },
+    {
+      "method": "WE[m]",
+      "mean": 3.595685915478851e-06,
+      "rel_sd": 2.4494897427831783,
+      "cost": 26747136.0,
+      "fom": 6.2311967407152164e-09,
+      "zeros": 5
+    },
+    {
+      "method": "WE[E]",
+      "mean": 0.0,
+      "rel_sd": Infinity,
+      "cost": 15291648.0,
+      "fom": 0.0,
+      "zeros": 6
+    },
+    {
+      "method": "WE[I_theta]",
+      "mean": 0.0,
+      "rel_sd": Infinity,
+      "cost": 25859328.0,
+      "fom": 0.0,
+      "zeros": 6
+    }
+  ]
+}

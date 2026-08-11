@@ -1,0 +1,81 @@
+########## alpha=0.25 ##########
+         1.0558    4.010e-04     0.473
+         1.1528    1.801e-05     1.813
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 283.77, sd(log) = 2.115
+
+   FW-CADIS(a=0.25): cost=7.87e+06  walkers/bin min=3 max=23
+      threshold       pi_hat   rel.err
+         0.6678    6.924e-01     0.010
+         0.7648    2.993e-01     0.015
+         0.8618    9.148e-02     0.039
+         0.9588    7.011e-03     0.149
+         1.0558    5.610e-04     0.356
+         1.1528    1.237e-05     2.449
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 245.24, sd(log) = 1.902
+
+   naive: cost=1.61e+07  unobserved thresholds=0/6  error-flatness max/min = 463.52
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 283.77, sd(log) = 2.115, cost = 2.01e+07
+   FW-CADIS  : max/min = 245.24, sd(log) = 1.902, cost = 7.87e+06
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> Flatter, but modestly. Raise --replicas before reporting it.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L12_laptop.json   wall time 24s
+
+########## alpha=0.5 ##########
+         1.1528    1.801e-05     1.813
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 283.77, sd(log) = 2.115
+
+   FW-CADIS(a=0.5): cost=3.41e+06  walkers/bin min=2 max=35
+      threshold       pi_hat   rel.err
+         0.6678    6.957e-01     0.010
+         0.7648    2.937e-01     0.049
+         0.8618    9.232e-02     0.048
+         0.9588    7.551e-03     0.159
+         1.0558    4.269e-04     0.637
+         1.1528    0.000e+00       inf  <-- UNOBSERVED
+   coverage: 5/6 thresholds observed; error-flatness over those: max/min = 65.76, sd(log) = 1.394
+
+   naive: cost=1.61e+07  unobserved thresholds=0/6  error-flatness max/min = 463.52
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 283.77, sd(log) = 2.115, cost = 2.01e+07
+   FW-CADIS  : max/min = 65.76, sd(log) = 1.394, cost = 3.41e+06
+   coverage  : uniform 6/6,  FW-CADIS 5/6  <-- judged FIRST
+   -> FW-CADIS observed FEWER thresholds -- it is spreading effort too
+      thin. Lower --alpha.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L12_laptop.json   wall time 20s
+
+########## alpha=0.75 ##########
+         1.1528    1.801e-05     1.813
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 283.77, sd(log) = 2.115
+
+   FW-CADIS(a=0.75): cost=3.29e+06  walkers/bin min=2 max=40
+      threshold       pi_hat   rel.err
+         0.6678    6.949e-01     0.010
+         0.7648    2.953e-01     0.024
+         0.8618    8.679e-02     0.057
+         0.9588    7.155e-03     0.114
+         1.0558    4.093e-04     0.622
+         1.1528    0.000e+00       inf  <-- UNOBSERVED
+   coverage: 5/6 thresholds observed; error-flatness over those: max/min = 63.47, sd(log) = 1.414
+
+   naive: cost=1.61e+07  unobserved thresholds=0/6  error-flatness max/min = 463.52
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 283.77, sd(log) = 2.115, cost = 2.01e+07
+   FW-CADIS  : max/min = 63.47, sd(log) = 1.414, cost = 3.29e+06
+   coverage  : uniform 6/6,  FW-CADIS 5/6  <-- judged FIRST
+   -> FW-CADIS observed FEWER thresholds -- it is spreading effort too
+      thin. Lower --alpha.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L12_laptop.json   wall time 19s
+

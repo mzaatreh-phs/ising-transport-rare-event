@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+project/venv/
+project/.label_cache/
+
+# LaTeX build artifacts (scoped so run_all_*.log experiment logs aren't excluded)
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.blg
+*.bbl
+*.abs
+project/07_paper/**/*.log
+project/07_paper/**/*.out
+manual.log
+manual.out
+
+# Archives
+*.zip

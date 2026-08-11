@@ -1,0 +1,131 @@
+preset=smoke jobs=7 stages=[1, 3, 4, 5]
+
+
+======================================================================
+STAGE 1: 01_van_ising   (VAN training; laptop ~6-10 min, full can be ~1 h)
+======================================================================
+$ (cd 01_van_ising && python3 run.py --L 6 --steps0 60 --steps 40 --out results_smoke)
+[check] exact L=4 @ T=2.0: F/N=-2.1382  E/N=-1.7554  |m|=0.9189
+[ 1/15] T= 3.500  F/N=-2.4483 (Onsager -2.7328)  E/N=-0.0299  C=0.163  |m|=0.135  [9s]
+[ 2/15] T= 3.230  F/N=-2.2804 (Onsager -2.5757)  E/N=-0.0663  C=0.197  |m|=0.141  [14s]
+[ 3/15] T= 2.960  F/N=-2.1144 (Onsager -2.4258)  E/N=-0.1149  C=0.258  |m|=0.161  [20s]
+[ 4/15] T= 2.689  F/N=-2.0325 (Onsager -2.2865)  E/N=-0.6413  C=0.644  |m|=0.463  [24s]
+[ 5/15] T= 2.419  F/N=-1.9830 (Onsager -2.1643)  E/N=-1.1236  C=0.942  |m|=0.688  [29s]
+[ 6/15] T= 2.319  F/N=-1.9868 (Onsager -2.1263)  E/N=-1.3193  C=0.936  |m|=0.777  [35s]
+[ 7/15] T= 2.294  F/N=-2.0083 (Onsager -2.1177)  E/N=-1.4102  C=0.876  |m|=0.812  [40s]
+[ 8/15] T= 2.269  F/N=-2.0211 (Onsager -2.1097)  E/N=-1.4927  C=0.786  |m|=0.845  [46s]
+[ 9/15] T= 2.244  F/N=-2.0266 (Onsager -2.1024)  E/N=-1.5630  C=0.676  |m|=0.868  [51s]
+[10/15] T= 2.219  F/N=-2.0288 (Onsager -2.0956)  E/N=-1.5668  C=0.686  |m|=0.870  [56s]
+[11/15] T= 2.119  F/N=-2.0138 (Onsager -2.0726)  E/N=-1.6562  C=0.607  |m|=0.900  [62s]
+[12/15] T= 1.839  F/N=-1.9761 (Onsager -2.0312)  E/N=-1.7780  C=0.499  |m|=0.937  [67s]
+[13/15] T= 1.560  F/N=-1.9526 (Onsager -2.0110)  E/N=-1.8459  C=0.436  |m|=0.958  [73s]
+[14/15] T= 1.280  F/N=-1.9397 (Onsager -2.0027)  E/N=-1.8939  C=0.381  |m|=0.972  [78s]
+[15/15] T= 1.000  F/N=-1.9317 (Onsager -2.0003)  E/N=-1.9084  C=0.472  |m|=0.977  [83s]
+
+Saved results_smoke_L6.csv and results_smoke_L6_thermo.png
+Total wall time: 85s
+--> OK in 89s
+
+======================================================================
+STAGE 3: 03_phase1_framing   (exact zero-variance demo; seconds)
+======================================================================
+$ (cd 03_phase1_framing && python3 demo_committor.py)
+Model: N=15, p=0.4 (drift toward 0), start s0=1
+Exact committor / importance  h(s0) = pi = 1.144443e-03  (deep-penetration prob)
+
+[naive analog MC]      M=400,000
+   pi_hat = 1.140000e-03   rel.var = 2.1735e-03   steps = 1,960,684   FOM = 2.347e-04
+
+[exact-importance IS]  M=2,000  (CADIS with the true adjoint)
+   estimate = 1.144443e-03   rel.var = 1.096e-30   steps = 100,114   FOM = 9.117e+24
+   -> every successful path carries the identical weight h(s0); variance ~ 0
+
+[approx-importance PURE TILT] M=20,000  (biasing with an INEXACT adjoint)
+   estimate = 1.153138e-03   rel.var = 4.5720e-01   steps = 1,554,732   FOM = 1.407e-06   <-- FRAGILE: worse than naive
+   (pure tilting is exquisitely sensitive to importance error; weight
+    windows -- split/roulette -- are the transport fix, quantified in Phase 2.)
+
+[analytic] FOM per unit cost vs rarity (fixed statistics):
+   naive rel.var ~ 1/(pi*M): FOM_naive ∝ pi ; exact-IS FOM independent of pi
+   N=10  pi=8.824e-03   naive relative cost to 1% error ∝ 1/pi = 1.13e+02
+   N=20  pi=1.504e-04   naive relative cost to 1% error ∝ 1/pi = 6.65e+03
+   N=30  pi=2.608e-06   naive relative cost to 1% error ∝ 1/pi = 3.84e+05
+   N=40  pi=4.522e-08   naive relative cost to 1% error ∝ 1/pi = 2.21e+07
+
+saved figs/committor_demo.pdf
+--> OK in 7s
+
+======================================================================
+STAGE 4: 04_phase2_core   (weight-window unit test + L=20 rare-tail figure; laptop ~10 min)
+======================================================================
+$ (cd 04_phase2_core && python3 ising_we.py)
+L=4, T=2.6  (Tc=2.269); exact vs Weighted Ensemble on P(m):
+      m      exact P         WE P    ratio
+ -1.000    1.461e-01    1.467e-01     1.00
+ -0.875    1.077e-01    1.077e-01     1.00
+ -0.750    7.358e-02    7.367e-02     1.00
+ -0.625    4.984e-02    4.955e-02     0.99
+ -0.500    3.697e-02    3.690e-02     1.00
+ -0.375    2.865e-02    2.900e-02     1.01
+ -0.250    2.426e-02    2.433e-02     1.00
+ -0.125    2.201e-02    2.148e-02     0.98
+  0.000    2.179e-02    2.191e-02     1.01
+  0.125    2.201e-02    2.184e-02     0.99
+  0.250    2.426e-02    2.446e-02     1.01
+  0.375    2.865e-02    2.844e-02     0.99
+  0.500    3.697e-02    3.728e-02     1.01
+  0.625    4.984e-02    4.984e-02     1.00
+  0.750    7.358e-02    7.350e-02     1.00
+  0.875    1.077e-01    1.075e-01     1.00
+  1.000    1.461e-01    1.459e-01     1.00
+
+mean |Δ ln P| over populated m = 0.006  (walkers≈340) -- should be small if unbiased
+--> OK in 9s
+
+======================================================================
+STAGE 5: 05_neural_importance   (learned importance vs coordinate baselines; laptop ~20-40 min)
+======================================================================
+$ (cd 05_neural_importance && python3 neural_importance.py --gate --preset smoke)
+[GATE] L=4 ferro T=2.6 thresh=1.0: exact pi = 2.921236e-01
+       WE[m]        pi = 2.921611e-01   ratio to exact = 1.000
+       WE[E]        pi = 2.925180e-01   ratio to exact = 1.001
+       (weight windows are unbiased for ANY coordinate; ratios ~1 confirm the implementation)
+       NOTE: a 16-spin system has no truly rare events (pi cannot go far below ~0.1),
+       so this gate validates UNBIASEDNESS only -- efficiency is measured at larger L.
+--> OK in 7s
+$ (cd 05_neural_importance && python3 neural_importance.py --preset smoke --jobs 7)
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ferro  L=8  T=2.6 (Tc=2.269)  preset=smoke  replicas=3  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = 1.0000
+   calibrated target (1 step(s) beyond pilot extreme): |m| >= 1.0000
+   WARNING: |m| is capped at 1.0 and the pilot already reached it, so this target
+            is NOT beyond the pilot and is probably NOT rare. On this lattice the
+            magnetization target cannot be made rarer by raising the threshold.
+            Use a larger --L, or a higher --T, or switch to --model ea.
+
+[1/2] learning I_theta(s) ...
+   training set: 400 configs; label (best reached) mean=0.8176 sd=0.0900 range=[0.523,1.000]  [0s]
+   epoch 2/8  MSE=0.9697 (1.0 = predicting the mean)  [2s]
+   epoch 4/8  MSE=0.8419 (1.0 = predicting the mean)  [2s]
+   epoch 6/8  MSE=0.7182 (1.0 = predicting the mean)  [2s]
+   epoch 8/8  MSE=0.6751 (1.0 = predicting the mean)  [2s]
+      done [3s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
+   naive        pi=4.059e-03  rel.sd=0.088  cost=3.46e+06  FOM=3.764e-05  zero-replicas=0/3  [4s]
+   WE[m]        pi=3.980e-03  rel.sd=0.156  cost=6.41e+06  FOM=6.426e-06  zero-replicas=0/3  [6s]
+   WE[E]        pi=3.527e-03  rel.sd=0.099  cost=4.40e+06  FOM=2.334e-05  zero-replicas=0/3  [7s]
+   WE[I_theta]  pi=3.896e-03  rel.sd=0.044  cost=6.19e+06  FOM=8.360e-05  zero-replicas=0/3  [10s]
+
+--- summary (FOM relative to the Phase-2 baseline WE[m]) ---
+   naive        FOM=3.764e-05   x    5.86 vs WE[m]
+   WE[m]        FOM=6.426e-06   x    1.00 vs WE[m]
+   WE[E]        FOM=2.334e-05   x    3.63 vs WE[m]
+   WE[I_theta]  FOM=8.360e-05   x   13.01 vs WE[m]
+
+Interpretation: for 'ferro', m is already a good coordinate, so the learned map need only match it.
+For 'ea' (spin glass) m is useless -- that is where a learned importance map should win.
+
+saved results_neural_ferro_L8_smoke.json   total wall time 10s
+--> OK in 13s

@@ -1,0 +1,49 @@
+=== Stage 6: FW-CADIS global variance reduction ===
+model=ea L=16 T=2.6 (Tc=2.269) preset=full replicas=90 jobs=7
+
+[1/3] calibrating the threshold FAMILY ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0625
+   calibrated target (1 step(s) beyond pilot extreme): E/N <= -1.0625
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+   6 thresholds spanning progress 0.6912 -> 1.0625
+   (ONE map must serve all of them -- that is the whole point)
+
+[2/3] pilot forward-response profile ...
+   pilot occupies 19/22 bins (deep bins empty -> they get the allocation floor)
+
+[3/3] head-to-head: uniform allocation vs FW-CADIS, SAME code ...
+
+   uniform(a=0): cost=1.55e+08  walkers/bin min=10 max=10
+      threshold       pi_hat   rel.err
+         0.6912    6.684e-01     0.003
+         0.7655    3.687e-01     0.005
+         0.8397    9.427e-02     0.012
+         0.9140    1.019e-02     0.037
+         0.9882    4.048e-04     0.192
+         1.0625    1.331e-05     0.885
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 341.17 (95% CI [269.8, 429.2]), sd(log) = 2.029
+
+   FW-CADIS(a=1.0): cost=1.94e+07  walkers/bin min=2 max=46
+      threshold       pi_hat   rel.err
+         0.6912    6.678e-01     0.007
+         0.7655    3.679e-01     0.015
+         0.8397    9.361e-02     0.034
+         0.9140    1.022e-02     0.101
+         0.9882    4.265e-04     0.457
+         1.0625    1.830e-05     3.026
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 405.05 (95% CI [295.8, 560.6]), sd(log) = 2.055
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 379.82
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 341.17 (95% CI [269.8, 429.2]), sd(log) = 2.029, cost = 1.55e+08
+   FW-CADIS  : max/min = 405.05 (95% CI [295.8, 560.6]), sd(log) = 2.055, cost = 1.94e+07
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> Bootstrap 95% CIs on max/min OVERLAP: the point-estimate gap is
+      not statistically distinguishable at this replica count. Raise
+      --replicas, don't read the point estimate as a verdict.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_bootstrap_r90_ea_L16_full.json   wall time 1076s

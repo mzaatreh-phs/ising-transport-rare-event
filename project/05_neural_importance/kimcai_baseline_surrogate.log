@@ -1,0 +1,34 @@
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=16  T=2.6 (Tc=2.269)  preset=full  replicas=10  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0625
+   calibrated target (1 step(s) beyond pilot extreme): E/N <= -1.0625
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+[1/2] learning I_theta(s) (objective=surrogate) ...
+   training set: 2500 configs; label (best reached) mean=0.8598 sd=0.0288 range=[0.793,0.979]  [8s]
+   epoch 5/20  MSE=0.7690 (1.0 = predicting the mean)  [14s]
+   epoch 10/20  MSE=0.4252 (1.0 = predicting the mean)  [18s]
+   epoch 15/20  MSE=0.3441 (1.0 = predicting the mean)  [22s]
+   epoch 20/20  MSE=0.2708 (1.0 = predicting the mean)  [25s]
+      done [25s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
+   naive        pi=1.000e-05  rel.sd=0.633  cost=1.34e+08  FOM=1.857e-08  zero-replicas=1/10  [68s]
+   WE[m]        pi=1.016e-05  rel.sd=1.857  cost=3.72e+07  FOM=7.804e-09  zero-replicas=7/10  [78s]
+   WE[E]        pi=1.647e-05  rel.sd=1.115  cost=1.61e+08  FOM=5.000e-09  zero-replicas=2/10  [131s]
+   WE[I_theta]  pi=1.366e-05  rel.sd=1.104  cost=1.42e+08  FOM=5.785e-09  zero-replicas=2/10  [245s]
+
+--- summary (FOM relative to the Phase-2 baseline WE[m]) ---
+   naive        FOM=1.857e-08   x    2.38 vs WE[m]
+   WE[m]        FOM=7.804e-09   x    1.00 vs WE[m]
+   WE[E]        FOM=5.000e-09   x    0.64 vs WE[m]
+   WE[I_theta]  FOM=5.785e-09   x    0.74 vs WE[m]
+
+Interpretation: for 'ferro', m is already a good coordinate, so the learned map need only match it.
+For 'ea' (spin glass) m is useless -- that is where a learned importance map should win.
+NOTE: methods with zero-replicas failed to observe the event at all in some replicas;
+their FOM is not meaningful -- that IS the failure mode being demonstrated.
+
+saved results_kimcai_baseline_surrogate_ea_L16_full.json   total wall time 245s

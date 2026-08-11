@@ -1,0 +1,132 @@
+"""
+diagnose_coordinate.py -- is the learned importance map actually learning anything
+that the energy does not already tell us?
+
+MOTIVATION. On the L=16 spin-glass run the network trained well (MSE 1.0 -> 0.27)
+yet WE[I_theta] performed like WE[E] (pi 3.51e-6 vs 3.91e-6; 7/10 vs 6/10 dead
+replicas). The simplest explanation is that I_theta(s) is a noisy re-derivation of
+E/N: the training label is "best progress value reached in K sweeps", and progress
+IS energy for the `ea` model, so a network can score well on that label by simply
+reading off the current energy -- learning nothing about WHICH configurations at a
+given energy are on their way down.
+
+If that is what happened, no amount of extra training will help; the LABEL has to
+change (milestoning / committor between intermediate thresholds), not the network.
+
+This script measures it directly:
+  * Pearson and Spearman correlation between I_theta(s) and E/N(s)
+  * the residual structure: how much variance in I_theta survives after
+    regressing out E/N (this is the only part that could beat WE[E])
+  * whether I_theta discriminates *within* a narrow energy shell -- the decisive
+    test, since inside a shell E/N is constant by construction
+
+Usage:
+    python3 diagnose_coordinate.py --model ea --preset full
+    python3 diagnose_coordinate.py --model ea --preset laptop   # faster
+"""
+from __future__ import annotations
+import argparse
+
+import numpy as np
+import torch
+
+from neural_importance import (PRESETS, make_couplings, calibrate_threshold,
+                               collect_training_configs, train_importance,
+                               energy_per_spin, magnetization, NetCoord)
+
+
+def spearman(a, b):
+    ra = np.argsort(np.argsort(a)).astype(float)
+    rb = np.argsort(np.argsort(b)).astype(float)
+    return float(np.corrcoef(ra, rb)[0, 1])
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", choices=["ferro", "ea"], default="ea")
+    ap.add_argument("--preset", choices=list(PRESETS), default="laptop")
+    ap.add_argument("--beyond", type=int, default=2)
+    ap.add_argument("--shell-width", type=float, default=0.02,
+                    help="half-width in E/N of the narrow energy shell")
+    a = ap.parse_args()
+
+    cfg = dict(PRESETS[a.preset])
+    L, T = cfg["L"], cfg["T"]
+    Jx, Jy = make_couplings(L, a.model, seed=12345)
+    torch.set_num_threads(1)
+    rng = np.random.default_rng(0)
+
+    print(f"model={a.model} L={L} T={T} preset={a.preset}\n")
+    thresh = calibrate_threshold(L, T, Jx, Jy, a.model, beyond=a.beyond, seed=99)
+
+    print("\ntraining I_theta (same procedure as the main script) ...")
+    net = train_importance(L, T, Jx, Jy, a.model, thresh, cfg, seed=0)
+    coord = NetCoord(net)
+
+    print("\ncollecting an independent evaluation set ...")
+    X = collect_training_configs(L, T, Jx, Jy, a.model, thresh,
+                                 cfg["collect_iter"], cfg["collect_walkers"], rng)
+    if len(X) > 4000:
+        X = X[rng.choice(len(X), 4000, replace=False)]
+    I = coord(X)
+    E = energy_per_spin(X, Jx, Jy)
+    M = np.abs(magnetization(X))
+
+    print(f"\nevaluation set: {len(X)} configs, "
+          f"E/N in [{E.min():.3f}, {E.max():.3f}]")
+
+    # ---------------------------------------------------------------- global
+    pear_E = float(np.corrcoef(I, E)[0, 1])
+    spear_E = spearman(I, E)
+    pear_M = float(np.corrcoef(I, M)[0, 1])
+    print("\n--- Is I_theta just energy? ---")
+    print(f"  Pearson  corr(I_theta, E/N) = {pear_E:+.4f}")
+    print(f"  Spearman corr(I_theta, E/N) = {spear_E:+.4f}")
+    print(f"  Pearson  corr(I_theta, |m|) = {pear_M:+.4f}   (sanity: should be weak for ea)")
+
+    # variance of I_theta not explained by a linear function of E
+    slope, intercept = np.polyfit(E, I, 1)
+    resid = I - (slope * E + intercept)
+    frac_resid = float(resid.var() / I.var())
+    print(f"  fraction of Var(I_theta) NOT explained by E/N = {frac_resid:.4f}")
+
+    # ------------------------------------------------- within an energy shell
+    # The decisive test. Inside a narrow shell E/N is ~constant, so ANY useful
+    # ordering I_theta provides here is information energy does not have.
+    centre = float(np.quantile(E, 0.05))          # deep-ish shell, still populated
+    sel = np.abs(E - centre) <= a.shell_width
+    print(f"\n--- Within a narrow energy shell (E/N = {centre:.3f} "
+          f"+/- {a.shell_width}) ---")
+    print(f"  shell population: {sel.sum()} configs")
+    if sel.sum() < 50:
+        print("  too few configs in the shell to judge; rerun with a wider "
+              "--shell-width or a larger preset.")
+    else:
+        Ish, Esh = I[sel], E[sel]
+        print(f"  spread of I_theta inside the shell: sd = {Ish.std():.4f} "
+              f"(global sd = {I.std():.4f}, ratio = {Ish.std()/I.std():.3f})")
+        print(f"  residual corr(I_theta, E/N) inside shell = "
+              f"{float(np.corrcoef(Ish, Esh)[0, 1]):+.4f}")
+
+    # ------------------------------------------------------------- verdict
+    print("\n--- verdict ---")
+    if abs(spear_E) > 0.95 and frac_resid < 0.10:
+        print("  I_theta is essentially a MONOTONE RESTATEMENT OF ENERGY.")
+        print("  Binning on it cannot beat WE[E], because it IS WE[E] with noise.")
+        print("  The fix is the LABEL, not the network: the current target")
+        print("  ('best progress reached') is almost a deterministic function of")
+        print("  the current energy. Use milestoning -- estimate the committor")
+        print("  between consecutive intermediate thresholds -- so the label")
+        print("  distinguishes configurations at the SAME energy.")
+    elif abs(spear_E) > 0.8:
+        print("  I_theta is strongly energy-like but retains some independent")
+        print("  structure. It may match WE[E] but is unlikely to beat it by much")
+        print("  until the label is improved.")
+    else:
+        print("  I_theta carries substantial information beyond energy. If it")
+        print("  still does not beat WE[E] in sampling, the problem is the")
+        print("  weight-window schedule (bin range / walkers per bin), not the map.")
+
+
+if __name__ == "__main__":
+    main()

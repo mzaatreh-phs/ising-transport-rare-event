@@ -1,0 +1,40 @@
+model=ea L=16 T=2.6 preset=full
+
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0781
+   calibrated target (2 step(s) beyond pilot extreme): E/N <= -1.0781
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+training I_theta (same procedure as the main script) ...
+   training set: 2500 configs; label (best reached) mean=0.8598 sd=0.0288 range=[0.793,0.979]  [17s]
+   epoch 5/20  MSE=0.7696 (1.0 = predicting the mean)  [28s]
+   epoch 10/20  MSE=0.4291 (1.0 = predicting the mean)  [37s]
+   epoch 15/20  MSE=0.3490 (1.0 = predicting the mean)  [45s]
+   epoch 20/20  MSE=0.2712 (1.0 = predicting the mean)  [54s]
+
+collecting an independent evaluation set ...
+
+evaluation set: 2800 configs, E/N in [-0.969, -0.453]
+
+--- Is I_theta just energy? ---
+  Pearson  corr(I_theta, E/N) = -0.6142
+  Spearman corr(I_theta, E/N) = -0.5532
+  Pearson  corr(I_theta, |m|) = -0.0189   (sanity: should be weak for ea)
+  fraction of Var(I_theta) NOT explained by E/N = 0.6228
+
+--- Within a narrow energy shell (E/N = -0.922 +/- 0.020) ---
+  shell population: 150 configs
+  spread of I_theta inside the shell: sd = 0.4985 (global sd = 0.7941, ratio = 0.628)
+  residual corr(I_theta, E/N) inside shell = -0.8731
+
+--- Does I_theta add PREDICTIVE power beyond E/N? ---
+   (computing rollout labels on the evaluation set ...)
+  R^2(label ~ E/N)          = 0.3578
+  R^2(label ~ I_theta)      = 0.5770
+  R^2(label ~ E/N + I_theta)= 0.6078
+  INCREMENTAL R^2 from I_theta beyond E/N = +0.2500
+
+--- verdict ---
+  I_theta adds real predictive power beyond energy (incremental R^2 = +0.250).
+  If it still does not beat WE[E] in sampling, the bottleneck is the
+  weight-window schedule (bin range, walkers per bin, tau), not the map.

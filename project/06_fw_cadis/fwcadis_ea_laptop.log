@@ -1,0 +1,48 @@
+=== Stage 6: FW-CADIS global variance reduction ===
+model=ea L=12 T=2.6 (Tc=2.269) preset=laptop replicas=6 jobs=6
+
+[1/3] calibrating the threshold FAMILY ...
+   pilot saw 25,600 samples, extreme = -1.1250, bulk mean = -0.7189
+   ladder spans E/N -0.5061 -> -1.1528
+   calibrated target (1 step(s) beyond pilot extreme): E/N <= -1.1528
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+   6 thresholds spanning progress 0.6678 -> 1.1528
+   (ONE map must serve all of them -- that is the whole point)
+
+[2/3] pilot forward-response profile ...
+   pilot occupies 14/16 bins (deep bins empty -> they get the allocation floor)
+
+[3/3] head-to-head: uniform allocation vs FW-CADIS, SAME code ...
+
+   uniform(a=0): cost=2.01e+07  walkers/bin min=8 max=8
+      threshold       pi_hat   rel.err
+         0.6678    6.906e-01     0.006
+         0.7648    2.902e-01     0.009
+         0.8618    8.856e-02     0.016
+         0.9588    6.983e-03     0.128
+         1.0558    4.010e-04     0.473
+         1.1528    1.801e-05     1.813
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 283.77, sd(log) = 2.115
+
+   FW-CADIS(a=1.0): cost=3.24e+06  walkers/bin min=2 max=41
+      threshold       pi_hat   rel.err
+         0.6678    6.912e-01     0.010
+         0.7648    3.004e-01     0.033
+         0.8618    9.011e-02     0.046
+         0.9588    6.387e-03     0.215
+         1.0558    3.219e-04     0.890
+         1.1528    0.000e+00       inf  <-- UNOBSERVED
+   coverage: 5/6 thresholds observed; error-flatness over those: max/min = 84.82, sd(log) = 1.549
+
+   naive: cost=1.61e+07  unobserved thresholds=0/6  error-flatness max/min = 463.52
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 283.77, sd(log) = 2.115, cost = 2.01e+07
+   FW-CADIS  : max/min = 84.82, sd(log) = 1.549, cost = 3.24e+06
+   coverage  : uniform 6/6,  FW-CADIS 5/6  <-- judged FIRST
+   -> FW-CADIS observed FEWER thresholds -- it is spreading effort too
+      thin. Lower --alpha.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L12_laptop.json   wall time 20s

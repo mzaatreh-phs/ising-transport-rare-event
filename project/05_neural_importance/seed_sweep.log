@@ -1,0 +1,130 @@
+=== SEED 1 START ===
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=1 replicas=10 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0356
+   milestones: [-0.72985046 -0.77353021 -0.81720996 -0.86088971 -0.90456946 -0.94824921
+ -0.99192896 -1.0356087 ]
+[1/3] Collecting training data and computing milestone labels...
+   computed in 212.0s, cached to .label_cache/labels_ea_L16_T2.6_b1_n2500.npz
+   labels: mean=0.5650 sd=0.1191 range=[0.2448,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0340  [3.8s]
+   epoch 10/20  MSE=0.9806  [7.5s]
+   epoch 15/20  MSE=0.8391  [11.3s]
+   epoch 20/20  MSE=0.6552  [15.1s]
+   training done [15.1s]
+[3/3] Running head-to-head...
+   naive        pi=5.286e-05  rel.sd=0.225  cost=1.34e+08  FOM=1.476e-07  zeros=0/10  [84.2s]
+   WE[m]      pi=5.552e-05  rel.sd=0.201  cost=2.12e+08  FOM=1.173e-07  zeros=0/10  [202.5s]
+   WE[E]      pi=4.488e-05  rel.sd=0.209  cost=5.45e+08  FOM=4.215e-08  zeros=0/10  [588.4s]
+   WE[I_theta] pi=5.086e-05  rel.sd=0.216  cost=6.91e+08  FOM=3.092e-08  zeros=0/10  [1778.5s]
+
+Results saved to results_seed1.json
+Total wall time: 1778.5s
+=== SEED 1 DONE ===
+=== SEED 2 START ===
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=1 replicas=10 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0356
+   milestones: [-0.72985046 -0.77353021 -0.81720996 -0.86088971 -0.90456946 -0.94824921
+ -0.99192896 -1.0356087 ]
+[1/3] Collecting training data and computing milestone labels...
+   computed in 214.8s, cached to .label_cache/labels_ea_L16_T2.6_b1_n2500.npz
+   labels: mean=0.5650 sd=0.1191 range=[0.2448,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0229  [5.0s]
+   epoch 10/20  MSE=0.9594  [9.8s]
+   epoch 15/20  MSE=0.8215  [14.7s]
+   epoch 20/20  MSE=0.6660  [20.1s]
+   training done [20.1s]
+[3/3] Running head-to-head...
+   naive        pi=5.286e-05  rel.sd=0.225  cost=1.34e+08  FOM=1.476e-07  zeros=0/10  [85.6s]
+   WE[m]      pi=5.552e-05  rel.sd=0.201  cost=2.12e+08  FOM=1.173e-07  zeros=0/10  [203.7s]
+   WE[E]      pi=4.488e-05  rel.sd=0.209  cost=5.45e+08  FOM=4.215e-08  zeros=0/10  [591.1s]
+   WE[I_theta] pi=5.061e-05  rel.sd=0.175  cost=7.00e+08  FOM=4.654e-08  zeros=0/10  [1810.6s]
+
+Results saved to results_seed2.json
+Total wall time: 1810.6s
+=== SEED 2 DONE ===
+=== SEED 3 START ===
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=1 replicas=10 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0356
+   milestones: [-0.72985046 -0.77353021 -0.81720996 -0.86088971 -0.90456946 -0.94824921
+ -0.99192896 -1.0356087 ]
+[1/3] Collecting training data and computing milestone labels...
+   computed in 210.4s, cached to .label_cache/labels_ea_L16_T2.6_b1_n2500.npz
+   labels: mean=0.5650 sd=0.1191 range=[0.2448,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0192  [4.8s]
+   epoch 10/20  MSE=0.9331  [9.7s]
+   epoch 15/20  MSE=0.7570  [14.4s]
+   epoch 20/20  MSE=0.6342  [19.0s]
+   training done [19.0s]
+[3/3] Running head-to-head...
+   naive        pi=5.286e-05  rel.sd=0.225  cost=1.34e+08  FOM=1.476e-07  zeros=0/10  [84.3s]
+   WE[m]      pi=5.552e-05  rel.sd=0.201  cost=2.12e+08  FOM=1.173e-07  zeros=0/10  [208.0s]
+   WE[E]      pi=4.488e-05  rel.sd=0.209  cost=5.45e+08  FOM=4.215e-08  zeros=0/10  [620.7s]
+   WE[I_theta] pi=4.561e-05  rel.sd=0.252  cost=6.88e+08  FOM=2.291e-08  zeros=0/10  [1887.0s]
+
+Results saved to results_seed3.json
+Total wall time: 1887.0s
+=== SEED 3 DONE ===
+=== SEED 4 START ===
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=1 replicas=10 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0356
+   milestones: [-0.72985046 -0.77353021 -0.81720996 -0.86088971 -0.90456946 -0.94824921
+ -0.99192896 -1.0356087 ]
+[1/3] Collecting training data and computing milestone labels...
+   computed in 204.4s, cached to .label_cache/labels_ea_L16_T2.6_b1_n2500.npz
+   labels: mean=0.5650 sd=0.1191 range=[0.2448,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0320  [5.0s]
+   epoch 10/20  MSE=0.9902  [9.6s]
+   epoch 15/20  MSE=0.8803  [14.2s]
+   epoch 20/20  MSE=0.7234  [19.0s]
+   training done [19.0s]
+[3/3] Running head-to-head...
+   naive        pi=5.286e-05  rel.sd=0.225  cost=1.34e+08  FOM=1.476e-07  zeros=0/10  [87.0s]
+   WE[m]      pi=5.552e-05  rel.sd=0.201  cost=2.12e+08  FOM=1.173e-07  zeros=0/10  [224.1s]
+   WE[E]      pi=4.488e-05  rel.sd=0.209  cost=5.45e+08  FOM=4.215e-08  zeros=0/10  [651.0s]
+   WE[I_theta] pi=4.132e-05  rel.sd=0.128  cost=6.92e+08  FOM=8.814e-08  zeros=0/10  [1876.1s]
+
+Results saved to results_seed4.json
+Total wall time: 1876.1s
+=== SEED 4 DONE ===
+=== SEED 5 START ===
+=== Milestoning version ===
+model=ea L=16 T=2.6 preset=custom beyond=1 replicas=10 jobs=7
+[0/3] Running pilot and calibrating target...
+   bulk mean = -0.7299, extreme = -1.0078, bulk_edge = -0.5689, target = -1.0356
+   milestones: [-0.72985046 -0.77353021 -0.81720996 -0.86088971 -0.90456946 -0.94824921
+ -0.99192896 -1.0356087 ]
+[1/3] Collecting training data and computing milestone labels...
+   computed in 199.2s, cached to .label_cache/labels_ea_L16_T2.6_b1_n2500.npz
+   labels: mean=0.5650 sd=0.1191 range=[0.2448,1.0000]
+   milestone bins occupied: [2, 3, 4, 5, 6, 7] of [0, 1, 2, 3, 4, 5, 6, 7]
+[2/3] Training ImportanceNet on milestone labels...
+   epoch 5/20  MSE=1.0237  [4.8s]
+   epoch 10/20  MSE=0.9433  [9.7s]
+   epoch 15/20  MSE=0.7886  [14.3s]
+   epoch 20/20  MSE=0.6427  [19.0s]
+   training done [19.0s]
+[3/3] Running head-to-head...
+   naive        pi=5.286e-05  rel.sd=0.225  cost=1.34e+08  FOM=1.476e-07  zeros=0/10  [83.3s]
+   WE[m]      pi=5.552e-05  rel.sd=0.201  cost=2.12e+08  FOM=1.173e-07  zeros=0/10  [199.7s]
+   WE[E]      pi=4.488e-05  rel.sd=0.209  cost=5.45e+08  FOM=4.215e-08  zeros=0/10  [581.5s]
+   WE[I_theta] pi=5.399e-05  rel.sd=0.138  cost=6.84e+08  FOM=7.654e-08  zeros=0/10  [1758.4s]
+
+Results saved to results_seed5.json
+Total wall time: 1758.4s
+=== SEED 5 DONE ===

@@ -1,0 +1,8 @@
+[GATE] L=4 ferro T=2.6 thresh=1.0: exact pi = 2.921236e-01
+       WE[m]        pi = 2.921611e-01   ratio to exact = 1.000
+       WE[E]        pi = 2.925180e-01   ratio to exact = 1.001
+       training I_theta at L=4 (objective=selfconsistent) to gate the learned coordinate too ...
+       WE[I_theta]  pi = 2.904423e-01   ratio to exact = 0.994
+       (weight windows are unbiased for ANY coordinate; ratios ~1 confirm the implementation)
+       NOTE: a 16-spin system has no truly rare events (pi cannot go far below ~0.1),
+       so this gate validates UNBIASEDNESS only -- efficiency is measured at larger L.

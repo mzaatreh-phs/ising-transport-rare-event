@@ -1,0 +1,48 @@
+=== Stage 6: FW-CADIS global variance reduction ===
+model=ea L=16 T=2.6 (Tc=2.269) preset=full replicas=30 jobs=8
+
+[1/3] calibrating the threshold FAMILY ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0625
+   calibrated target (1 step(s) beyond pilot extreme): E/N <= -1.0625
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+   6 thresholds spanning progress 0.6912 -> 1.0625
+   (ONE map must serve all of them -- that is the whole point)
+
+[2/3] pilot forward-response profile ...
+   pilot occupies 19/22 bins (deep bins empty -> they get the allocation floor)
+
+[3/3] head-to-head: uniform allocation vs FW-CADIS, SAME code ...
+
+   uniform(a=0): cost=1.55e+08  walkers/bin min=10 max=10
+      threshold       pi_hat   rel.err
+         0.6912    6.683e-01     0.002
+         0.7655    3.685e-01     0.005
+         0.8397    9.421e-02     0.015
+         0.9140    1.010e-02     0.040
+         0.9882    4.145e-04     0.212
+         1.0625    1.620e-05     0.689
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 298.01, sd(log) = 2.008
+
+   FW-CADIS(a=1.0): cost=1.94e+07  walkers/bin min=2 max=46
+      threshold       pi_hat   rel.err
+         0.6912    6.680e-01     0.006
+         0.7655    3.684e-01     0.015
+         0.8397    9.368e-02     0.040
+         0.9140    1.003e-02     0.108
+         0.9882    4.285e-04     0.428
+         1.0625    2.372e-05     2.388
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 385.54, sd(log) = 2.008
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 445.06
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 298.01, sd(log) = 2.008, cost = 1.55e+08
+   FW-CADIS  : max/min = 385.54, sd(log) = 2.008, cost = 1.94e+07
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> No flattening at this budget. Either alpha is mistuned, or the
+      ladder budget is too small for the deep bins to be served.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L16_full.json   wall time 439s

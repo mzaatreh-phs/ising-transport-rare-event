@@ -1,0 +1,81 @@
+########## alpha=0.25 ##########
+         1.0625    1.620e-05     0.689
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 298.01, sd(log) = 2.008
+
+   FW-CADIS(a=0.25): cost=7.89e+07  walkers/bin min=4 max=23
+      threshold       pi_hat   rel.err
+         0.6912    6.683e-01     0.005
+         0.7655    3.680e-01     0.009
+         0.8397    9.416e-02     0.018
+         0.9140    1.027e-02     0.063
+         0.9882    4.193e-04     0.270
+         1.0625    1.360e-05     1.710
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 377.78, sd(log) = 2.051
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 445.06
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 298.01, sd(log) = 2.008, cost = 1.55e+08
+   FW-CADIS  : max/min = 377.78, sd(log) = 2.051, cost = 7.89e+07
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> No flattening at this budget. Either alpha is mistuned, or the
+      ladder budget is too small for the deep bins to be served.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L16_full.json   wall time 502s
+
+########## alpha=0.5 ##########
+         1.0625    1.620e-05     0.689
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 298.01, sd(log) = 2.008
+
+   FW-CADIS(a=0.5): cost=2.35e+07  walkers/bin min=2 max=36
+      threshold       pi_hat   rel.err
+         0.6912    6.694e-01     0.007
+         0.7655    3.685e-01     0.016
+         0.8397    9.438e-02     0.035
+         0.9140    1.026e-02     0.085
+         0.9882    4.434e-04     0.584
+         1.0625    9.882e-06     2.275
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 323.91, sd(log) = 2.011
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 445.06
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 298.01, sd(log) = 2.008, cost = 1.55e+08
+   FW-CADIS  : max/min = 323.91, sd(log) = 2.011, cost = 2.35e+07
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> No flattening at this budget. Either alpha is mistuned, or the
+      ladder budget is too small for the deep bins to be served.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L16_full.json   wall time 446s
+
+########## alpha=0.75 ##########
+         1.0625    1.620e-05     0.689
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 298.01, sd(log) = 2.008
+
+   FW-CADIS(a=0.75): cost=1.98e+07  walkers/bin min=2 max=43
+      threshold       pi_hat   rel.err
+         0.6912    6.686e-01     0.007
+         0.7655    3.683e-01     0.013
+         0.8397    9.405e-02     0.028
+         0.9140    1.006e-02     0.099
+         0.9882    4.489e-04     0.559
+         1.0625    9.591e-06     2.497
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 342.35, sd(log) = 2.075
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 445.06
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 298.01, sd(log) = 2.008, cost = 1.55e+08
+   FW-CADIS  : max/min = 342.35, sd(log) = 2.075, cost = 1.98e+07
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> No flattening at this budget. Either alpha is mistuned, or the
+      ladder budget is too small for the deep bins to be served.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_ea_L16_full.json   wall time 438s
+

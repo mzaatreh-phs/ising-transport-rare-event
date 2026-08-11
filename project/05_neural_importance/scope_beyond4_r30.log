@@ -1,0 +1,6 @@
+WE budget: n_bins=80  n_per_bin=40  we_iter=3000  we_burn=600  tau=2
+Pilot (identical to run_milestone.py)...
+bulk_mean=-0.7299  extreme=-1.0078  bulk_edge=-0.5689  step=0.0278
+
+=== beyond=4  thresh=-1.1190 ===
+   naive        pi=0.000e+00  rel.sd=inf  FOM=0.000e+00  zeros=30/30  [253.4s]

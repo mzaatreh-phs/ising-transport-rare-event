@@ -1,0 +1,55 @@
+=== Stage 6: FW-CADIS global variance reduction ===
+model=ea L=16 T=2.6 (Tc=2.269) preset=full replicas=30 jobs=7
+
+[1/3] calibrating the threshold FAMILY ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0469
+   calibrated target (0 step(s) beyond pilot extreme): E/N <= -1.0469
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+   6 thresholds spanning progress 0.6873 -> 1.0469
+   (ONE map must serve all of them -- that is the whole point)
+
+[2/3] pilot forward-response profile ...
+   pilot occupies 20/22 bins (deep bins empty -> they get the allocation floor)
+
+[3/3] head-to-head: uniform allocation vs FW-CADIS, SAME code ...
+
+   uniform(a=0): cost=1.59e+08  walkers/bin min=10 max=10
+      threshold       pi_hat   rel.err
+         0.6873    7.347e-01     0.002
+         0.7592    3.688e-01     0.005
+         0.8312    9.416e-02     0.013
+         0.9031    1.726e-02     0.028
+         0.9750    8.744e-04     0.113
+         1.0469    3.120e-05     0.545
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 250.67 (95% CI [188.4, 332.0]), sd(log) = 1.857
+
+   FW-CADIS(a=1.0): cost=2.00e+07  walkers/bin min=2 max=53
+      threshold       pi_hat   rel.err
+         0.6873    7.346e-01     0.005
+         0.7592    3.682e-01     0.011
+         0.8312    9.477e-02     0.033
+         0.9031    1.701e-02     0.065
+         0.9750    8.228e-04     0.354
+         1.0469    2.115e-05     1.942
+   coverage: 6/6 thresholds observed; error-flatness over those: max/min = 356.30 (95% CI [235.0, 580.6]), sd(log) = 2.007
+
+   naive: cost=1.34e+08  unobserved thresholds=0/6  error-flatness max/min = 252.20
+
+--- verdict: does FW-CADIS flatten the error across the family? ---
+   uniform   : max/min = 250.67 (95% CI [188.4, 332.0]), sd(log) = 1.857, cost = 1.59e+08
+   FW-CADIS  : max/min = 356.30 (95% CI [235.0, 580.6]), sd(log) = 2.007, cost = 2.00e+07
+
+   paired comparison (common random numbers): corr(pi_hat at shallowest threshold) = -0.129
+      -> seed sharing bought ~no measurable correlation here (as the docstring warned it might not); the paired CI below is not meaningfully
+         tighter than the independent one -- treat it as a sanity check, not a resolution.
+   FW-CADIS - uniform (spread difference): +106.15 (95% CI [-41.4, +318.5])
+      -> paired 95% CI still includes zero: not resolved even with paired analysis.
+   coverage  : uniform 6/6,  FW-CADIS 6/6  <-- judged FIRST
+   -> Bootstrap 95% CIs on max/min OVERLAP: the point-estimate gap is
+      not statistically distinguishable at this replica count. Raise
+      --replicas, don't read the point estimate as a verdict.
+   NOTE: flatness is the metric here, NOT a single FOM. Comparing one
+   threshold at a time is exactly what this stage is designed to replace.
+
+saved results_fwcadis_beyond0_ea_L16_full.json   wall time 399s
