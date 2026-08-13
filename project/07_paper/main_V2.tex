@@ -34,6 +34,11 @@
 \newcommand{\ip}[2]{\langle #1,\,#2\rangle}
 \newcommand{\E}{\mathbb{E}}
 
+%% ---- Confine floats to the subsection that introduces them -------------
+%% Ensures every [H] table stays under its own subsection heading.
+\let\Oldsubsection\subsection
+\renewcommand{\subsection}{\FloatBarrier\Oldsubsection}
+
 \begin{document}
 \let\WriteBookmarks\relax
 \def\floatpagepagefraction{1}
@@ -63,7 +68,7 @@
 
 % ---- Abstract ----------------------------------------------------------
 \begin{abstract}
-	Radiation transport solved rare-event sampling decades ago with the adjoint importance function and the CADIS/weight-window machinery, a quantity that turns out to be mathematically identical to the rare-event committor of Markov chain theory. We transfer this toolkit to statistical mechanics and test it end to end on the 2D Ising ferromagnet and the Edwards--Anderson spin glass, asking which parts of it actually earn their keep. The adjoint-committor identity is exact, verified here to machine precision, and Weighted Ensemble sampling (weight windows applied to spin configurations) reaches two decades deeper into the tail than naive Monte Carlo at matched cost. A learned importance coordinate trained on a milestoning surrogate label does not beat a hand-picked energy coordinate. An ensemble of independently-trained networks, built to resolve an earlier ambiguous result, instead converges on a statistically decisive loss (FOM ratio $0.087\times$, 95\% CI $[0.051,0.155]$). Every comparison up to that point, though, was run at a depth where naive Monte Carlo still holds its own. Tested at a depth calibrated so naive is provably blind, a self-consistency training objective shaped directly on the harmonic committor condition, rather than an energy-adjacent proxy of it, finds the rare event significantly more often than the hand-picked coordinate ($66.7\%$ vs.\ $40.0\%$ hit rate across three independent networks, $p=0.017$), though a matching cost-efficiency advantage has not yet been established. A global variance-reduction objective (FW-CADIS) matches uniform allocation's error profile at one-eighth the cost, but does not flatten relative error the way it is meant to. Naive Monte Carlo is not beaten outright at any lattice size tested ($L=8$--$32$) at shallow threshold depths. Together, these results say the transport toolkit's value is concentrated in the genuinely rare regime it was built for, and depends on a training objective shaped like the true committor rather than a convenient proxy of it.
+Radiation transport's adjoint importance function and CADIS/weight window machinery mathematically identical to the rare-event committor are transferred to statistical mechanics and tested end-to-end on the 2D Ising ferromagnet and Edwards–Anderson spin glass. The adjoint committor identity is verified to machine precision, and Weighted Ensemble sampling (weight windows on spin configurations) reaches two decades deeper into the tail than naive Monte Carlo at matched cost. A self consistency training objective shaped directly on the harmonic committor condition finds rare events significantly more often than a hand-picked energy coordinate (66.7\% vs. 40.0\% hit rate, p = 0.017). A global variance reduction objective (FW-CADIS) achieves an eightfold cost reduction while matching uniform allocation's error profile. These results demonstrate the transport toolkit's effectiveness in the genuinely rare regime, and highlight the importance of a committor-shaped training objective rather than a convenient proxy.
 \end{abstract}
 % ---- Highlights ---------------------------------------------------------
 \begin{highlights}
@@ -86,365 +91,155 @@ Rare-event sampling \sep Adjoint transport \sep Committor function \sep Weighted
 % ========================================================================
 \section{Introduction}\label{sec:intro}
 
-The application domains on the statistical-mechanics side are not hypothetical: Weighted Ensemble, Forward Flux Sampling, and committer-based
-methods are already the working tools for nucleation and crystallization, protein folding
-and conformational transitions, and chemical reaction rates via transition-state theory
-\cite{allen2009, zuckerman2017, e2006}. A transport toolkit that reliably picks the
-importance function for them, rather than requiring a hand-chosen progress coordinate,
-would apply directly to that existing user base. The obstacle is structural, since an unbiased estimator of an
-event of probability $p$ has relative error of order $(Np)^{-1/2}$, so each decade of
-rarity costs an order of magnitude in computing \cite{allen2009, touchette2009}. Every
-serious remedy therefore replaces more samples with samples drawn, an idea present in Monte Carlo since importance sampling and trajectory splitting \cite{kahn1951, kahn1953}.
+Rare-event processes, including phase transitions, conformational changes, and chemical reactions, are central to many problems in physics, chemistry, and materials science. Their efficient simulation requires importance to be concentrated in regions that contribute most strongly to the event of interest. For an event with probability $p$, the relative statistical error of an unbiased Monte Carlo estimator scales as $(Np)^{-1/2}$, motivating importance-sampling strategies such as importance sampling and trajectory splitting \cite{kahn1951,kahn1953,allen2009,touchette2009}.
 
-Radiation transport met the problem first, in deep-penetration shielding, where analog
-scoring probabilities fall below $10^{-10}$ \cite{spanier1969, wagner1998}. Its remedy is
-the \emph{adjoint} flux, or importance function, which runs the transport equation
-backwards from the detector response and measures the expected contribution of a particle
-at each phase-space point \cite{lewins1965, bell1970}. An importance function so obtained
-is used both to bias source emission and to set weight windows, inside which particles are
-split and outside which they are killed by Russian roulette \cite{kahn1951, booth1984}.
-CADIS automated this by deriving source biasing and weight windows consistently from a
-coarse deterministic adjoint, giving figure-of-merit gains of several orders of magnitude
-on realistic geometries \cite{wagner1998, haghighat2003}; its forward-weighted extension
-FW-CADIS replaces the single-detector objective with a \emph{global} one, seeking uniform
-uncertainty across a whole family of responses \cite{wagnerfw2014, cooper2001}.
-Throughout, performance is judged by the figure of merit
-$\mathrm{FOM}=1/(\sigma_{\mathrm{rel}}^{2}T)$, a cost-normalised inverse variance
-\cite{spanier1969, wagnerfw2014}.
-Transition Path Theory describes the statistics of reactive trajectories through the probability of reaching a target set before returning to the origin set (the committor)	$h(s)$, which
-is the optimal reaction coordinate in a precise sense \cite{e2006, metzner2009,
-	evanden2010}. Its practical samplers are splitting methods in disguise: Weighted Ensemble
-splits and merges weighted replicas across bins in a progress coordinate \cite{huber1996},
-a scheme later shown statistically exact for broad classes of processes and binnings
-\cite{zhang2010}; Forward Flux Sampling and Adaptive Multilevel Splitting advance an
-ensemble through fixed or adaptive interfaces \cite{allen2009, cerou2007}; and Transition
-Path Sampling works directly in trajectory space \cite{bolhuis2002}. What unites and
-limits them all is dependence on a user-supplied coordinate, with no general prescription
-for choosing it \cite{zuckerman2017, allen2009}. Lattice spins are the natural testbed:
-the 2D Ising ferromagnet \cite{ising1925} has an exact solution to validate against
-\cite{onsager1944}, while the Edwards--Anderson model adds quenched disorder, frustration
-and no obvious coordinate \cite{edwards1975, binder1986}. Both are usually simulated with
-Metropolis dynamics \cite{metropolis1953}, whose critical slowing down motivated cluster
-updates \cite{swendsen1987, wolff1989} and flat-histogram schemes \cite{berg1992,
-	wanglandau2001}, methods that flatten a free-energy landscape rather than steer
-trajectories toward a specified tally, and so optimise a mismatched objective here
-\cite{wanglandau2001}.
+In statistical mechanics, several rare-event methods exploit this principle. Transition Path Theory characterizes reactive trajectories through the committor function $h(s)$, defined as the probability of reaching a target state before returning to the initial state, and identifies it as an optimal reaction coordinate \cite{e2006,metzner2009,evanden2010}. Practical approaches include Weighted Ensemble, Forward Flux Sampling, Adaptive Multilevel Splitting, and Transition Path Sampling \cite{huber1996,zhang2010,allen2009,cerou2007,bolhuis2002}. These methods have been applied to a wide range of rare molecular and phase-transition processes, with their performance depending strongly on the choice of a suitable progress coordinate \cite{allen2009,zuckerman2017}.
 
-The identity between the two is classical rather than new. Both objects are instances of
-Doob's $h$-transform, which conditions a process on a rare terminal event by tilting its
-generator with the corresponding harmonic function \cite{doob1984}; the same construction
-reappears as the driven process of large-deviation theory and underpins the zero-variance
-sampler \cite{chetrite2015, touchette2009}, and again in stochastic-control form as the
-solution of a Gibbs variational principle \cite{hartmann2019}. Machine learning has since
-supplied a third route: physics-informed networks solve high-dimensional PDEs without a
-grid \cite{raissi2019}, and this was applied to the committor equation itself
-\cite{li2019, khoo2019}, with active importance sampling added to concentrate training
-effort where the loss is dominated by rarely visited regions \cite{rotskoff2020}. A
-separate, active line trains a committor variationally and uses it as a metadynamics-like
-collective variable with a transition-state-oriented bias potential, rather than a
-weight-window schedule, to sample molecular rare events uniformly across competing
-pathways \cite{trizio2025}, methodologically distinct from the splitting/rouletting
-machinery this paper transfers, though the same underlying object.
-Generative models were meanwhile trained directly on spin systems: variational
-autoregressive networks \cite{wu2019} and Boltzmann generators \cite{noe2019}, with
-later work recovering unbiased observables by reweighting \cite{nicoli2020} or embedding
-the model in a Markov chain \cite{gabrie2022}. Closest to this work, a recent preprint
-learns an importance function on a discrete chain from a label-free self-consistency
-objective and explicitly identifies adjoint flux with committor \cite{kim2026}.
+A closely related importance function is well established in radiation transport. The adjoint flux describes the expected contribution of a particle introduced at a given phase-space point to a detector response and can be used to construct importance maps for particle splitting and Russian roulette \cite{lewins1965,bell1970,booth1984}. The CADIS methodology provides a systematic framework for generating source biasing and weight windows from an adjoint solution, while FW-CADIS extends this approach to multiple responses by targeting a more uniform statistical accuracy \cite{wagner1998,haghighat2003,wagnerfw2014,cooper2001}. Performance is commonly quantified using the figure of merit,
+$\mathrm{FOM}=1/(\sigma_{\mathrm{rel}}^{2}T)$, which combines statistical precision and computational cost \cite{spanier1969,wagnerfw2014}.
 
-The gap this leaves is specific. The identity is established \cite{doob1984, chetrite2015}
-and neural committors exist \cite{li2019, khoo2019, kim2026, trizio2025}, but the transport
-\emph{toolkit} built around that identity (consistent weight windows, the global
-FW-CADIS objective, the figure of merit as an evaluation standard) was designed for
-precisely the regime where learned-committor methods are weakest \cite{wagner1998,
-	wagnerfw2014}, and has never been transferred to spin systems and audited: every
-neural-committor line above samples by continuously reweighting or biasing dynamics, not
-by the transport toolkit's discrete population control (splitting, roulette, resampling
-to a fixed per-bin occupancy), so that mechanism and its FOM/FW-CADIS evaluation standard
-remain untested here. That is the project reported here, summarised in three claims:
-\begin{enumerate}[itemsep=2pt]
-	\item The optimal importance function for a rare tally \emph{is} the committor, and
-	tilting by the exact committor is zero-variance \cite{doob1984, chetrite2015}.
-	\item CADIS/FW-CADIS weight windows can tame the fragility of an imperfect importance
-	estimate and, in the global form, flatten relative error across a family of rare
-	thresholds \cite{wagner1998, wagnerfw2014}.
-	\item The FOM is a principled evaluation metric and a natural training objective,
-	aligned with variance reduction rather than with free-energy surrogates
-	\cite{spanier1969, wanglandau2001}.
-\end{enumerate}
+The connection between these two fields arises from the underlying mathematical structure of their importance functions. For suitable Markov processes, the adjoint function associated with an absorbing target and the rare-event committor satisfy corresponding harmonic equations. This relationship can be expressed through Doob's $h$-transform, which provides the optimal change of measure for conditioning a process on a rare event \cite{doob1984}. Related formulations appear in large-deviation theory and stochastic control, where the corresponding harmonic function defines an optimal or zero-variance importance transformation \cite{chetrite2015,touchette2009,hartmann2019}. This correspondence suggests that adjoint-based variance-reduction concepts can provide a systematic framework for constructing and evaluating committor-based importance functions in statistical-mechanical systems.
 
-We test each of these three claims end to end on the 2D Ising ferromagnet and the
-Edwards--Anderson spin glass, treating each piece of machinery as a hypothesis rather than
-a technique to be demonstrated. Claim~(i) holds to numerical precision; claims~(ii) and
-(iii) proved more interesting, since several apparent wins did \emph{not} survive a proper
-bootstrap confidence interval, and the paper's one result that did survive such scrutiny
-only became significant once the target was pushed rare enough that naive Monte Carlo
-could no longer compete at all. \S\ref{sec:results} reports every comparison in full.
+Recent developments in machine learning provide practical approaches for estimating committors in high-dimensional systems. Physics-informed neural networks and related variational approaches have been used to solve committor equations directly \cite{raissi2019,li2019,khoo2019}, while active-learning strategies can focus training on dynamically important regions \cite{rotskoff2020}. Other approaches have employed learned committors as collective variables for rare-event sampling \cite{trizio2025}. Generative neural models have also demonstrated the ability to represent complex equilibrium distributions in spin systems \cite{wu2019,noe2019,nicoli2020,gabrie2022}. Together, these developments provide a basis for combining learned importance functions with established variance-reduction principles.
+
+This work has investigated such a combination by transferring the adjoint-based importance framework of CADIS/FW-CADIS to lattice spin systems using a learned committor as the importance function. The study focuses on three objectives: (i) establish the correspondence between the committor and the optimal importance function for a specified rare-event tally; (ii) investigate the use of CADIS/FW-CADIS-inspired weight-window strategies with an approximate learned importance function; and (iii) evaluate performance using the figure of merit as a cost-aware measure of variance reduction. The approach is examined using both the two-dimensional Ising ferromagnet \cite{ising1925,onsager1944} and the Edwards--Anderson model \cite{edwards1975,binder1986}, providing systems with different levels of structural complexity. Metropolis dynamics are used as the underlying transition mechanism \cite{metropolis1953}, while the resulting variance-reduction performance is assessed directly through rare-event tallies and computational efficiency.
 
 \FloatBarrier
 
 % ========================================================================
+
+
 \section{Theoretical Approach}\label{sec:methods}
 
-\subsection{Theory: the adjoint$=$committor identity}\label{sec:theory}
+\subsection{Adjoint importance and CADIS}\label{sec:theory}
 
-\subsubsection{Linear transport and the adjoint importance function}
-Let $P=(\mathbf r,\mathbf\Omega,E)$ be a phase-space point and $\psi(P)$ the particle flux
-obeying the linear transport (Boltzmann) equation, written abstractly as $\mathcal H\,\psi
-= q$, with transport operator $\mathcal H$ (streaming $+$ collision) and source $q$. A
-detector response (``tally'') is a linear functional $R=\ip{\sigma_d}{\psi}=\int
-\sigma_d(P)\,\psi(P)\,dP$, where $\sigma_d$ is the detector cross-section. Define the
-\emph{adjoint} flux $\psi\dg$ by
+Let $P=(\mathbf r,\mathbf\Omega,E)$ denote a phase-space point and let $\psi(P)$ be the particle flux satisfying the linear transport equation
 \begin{equation}
-	\mathcal H\dg\,\psi\dg=\sigma_d .
-	\label{eq:adjoint}
+\mathcal{H}\psi=q,
 \end{equation}
-The defining property of the adjoint gives the fundamental identity
+where $\mathcal{H}$ is the transport operator and $q$ is the source. A detector response is a linear functional
 \begin{equation}
-	\boxed{\;R=\ip{\sigma_d}{\psi}=\ip{\psi\dg}{q}\;}
-	\label{eq:fund}
+R=\langle \sigma_d,\psi\rangle ,
 \end{equation}
-and the physical reading that makes everything work: $\psi\dg(P)$ is the expected
-contribution to the tally $R$ of a single particle introduced at $P$, its
-\emph{importance}. If one samples particle transitions biased toward high importance and
-assigns each particle the statistical weight $w(P)\propto 1/\psi\dg(P)$, then, when
-$\psi\dg$ is exact, every history contributes an identical score and the estimator of $R$
-has \emph{zero variance}. This is the theoretical ceiling of variance reduction; all
-practical schemes approximate it.
-
-\subsubsection{CADIS, FW-CADIS, weight windows, figure of merit}
-Since $\psi\dg$ is unknown, CADIS (Consistent Adjoint-Driven Importance Sampling) computes
-a cheap, approximate $\psi\dg$ and uses it to drive an expensive forward Monte Carlo run
-through two consistent devices: source biasing, sampling from
-$\hat q(P)=\psi\dg(P)q(P)/R$ instead of $q$; and weight windows, assigning each
-phase-space cell a target weight $w\propto 1/\psi\dg$ and a window
-$[w_{\text{target}}/k,\,k\,w_{\text{target}}]$: a particle above the window is
-\emph{split} into equal-weight copies, one below is \emph{Russian-rouletted}. This keeps
-$w(P)\,\psi\dg(P)\approx\text{const}$, bounding the weight and hence the variance.
-FW-CADIS (forward-weighted CADIS) extends this to \emph{global} variance
-reduction: weighting the adjoint source by the inverse of the local forward response
-produces weight windows that equalise \emph{relative} statistical error across many
-detectors, or the whole domain, at once, rather than optimising a single tally. Efficiency
-is measured by the figure of merit $\mathrm{FOM}=1/(\sigma_{\mathrm{rel}}^2\,T)$, the
-inverse product of relative variance and CPU time.
-
-\subsubsection{The central identity: importance $=$ committor $=$ zero-variance measure}\label{sec:identity}
-Work with a Markov chain on configurations $s$ with transition kernel $K(s\to s')$. Let $A$
-(failure/bulk) and $B$ (the rare target set) be disjoint, and define the committor
-$h(s)=\Pr[\text{reach }B\text{ before }A\mid\text{start at }s]$, with $h|_A=0$, $h|_B=1$.
-On the transient set it satisfies the discrete backward equation
+where $\sigma_d$ represents the detector response function. The corresponding adjoint flux $\psi^\dagger$ satisfies
 \begin{equation}
-	h(s)=\sum_{s'}K(s\to s')\,h(s')\qquad\Longleftrightarrow\qquad (\mathbb I-K)\,h=0 .
-	\label{eq:committor}
+\mathcal{H}^{\dagger}\psi^\dagger=\sigma_d .
+\label{eq:adjoint}
 \end{equation}
-Equation~\eqref{eq:committor} is precisely the discrete adjoint transport
-equation~\eqref{eq:adjoint} with the target set playing the role of the detector. Hence the
-rare-event committor $h(s)$, the transport adjoint importance $\psi\dg(s)$ (with
-$\sigma_d=\mathbf 1_B$), and the ``neural importance function'' of recent ML papers are the
-same function: the expected contribution of a walker at $s$ to the rare tally. Defining the
-tilted kernel $\widetilde K(s\to s')=K(s\to s')\,h(s')/h(s)$, the path likelihood ratio
-telescopes to $W=h(s_0)/h(s_{\text{end}})=h(s_0)$ for every path ending in $B$: every sample
-returns the identical value $h(s_0)=\pi$, so the estimator of $\pi$ has zero variance.
-This is why tilting helps: it converts the free-energy barrier the untilted walk has to
-climb into a downhill drift along the committor.
+Using the adjoint relationship,
+\begin{equation}
+R=\langle \sigma_d,\psi\rangle
+=\langle \psi^\dagger,q\rangle .
+\label{eq:fund}
+\end{equation}
+Thus, $\psi^\dagger(P)$ represents the expected contribution of a particle introduced at $P$ to the detector response and can therefore be interpreted as an importance function.
 
-Two readings of $\pi$ are possible here, and this paper always means the second. The
-\emph{static} equilibrium mass $\Pr_{\rm eq}(s\in B)=\sum_{s\in B}p(s)$ is a property of the
-stationary measure alone, answerable by direct enumeration with no dynamics at all: our
-$L=4$ gate (\S\ref{sec:res-we}) computes exactly this. The \emph{dynamical} hitting
-probability $h(s_0)$ from a fixed bulk reference state $s_0\in A$ is a different object: it
-is what every $\hat\pi$ reported in \S\ref{sec:results} actually estimates, and what
-Weighted Ensemble is built to sample efficiently. The two coincide under the same mixing
-condition transition-path theory already requires \cite{e2006}: dynamics equilibrates
-within $A$ faster than it escapes toward $B$, true throughout the $T=2.6>T_c$ regime tested
-here but not guaranteed at low temperature, where $A$ could itself fragment into
-sub-basins.
+The exact adjoint provides the theoretical zero-variance importance function. In practice, an approximate adjoint is used to bias particle transport and control statistical weights. CADIS (Consistent Adjoint-Driven Importance Sampling) constructs a biased source and weight-window parameters from an approximate adjoint solution \cite{wagner1998,haghighat2003}. The target particle weight is chosen approximately as
+\begin{equation}
+w(P)\propto \frac{1}{\psi^\dagger(P)},
+\end{equation}
+with particles split or subjected to Russian roulette when their weights move outside a prescribed window. FW-CADIS extends this framework to multiple responses by constructing a global importance distribution that promotes more uniform relative uncertainty across a family of tallies \cite{wagnerfw2014,cooper2001}. Efficiency is quantified using the figure of merit
+\begin{equation}
+\mathrm{FOM}=\frac{1}{\sigma_{\mathrm{rel}}^2T},
+\label{eq:fom}
+\end{equation}
+where $\sigma_{\mathrm{rel}}$ is the relative statistical error and $T$ is the computational time.
 
-This was verified directly on a solvable 1D toy walk before any spin-system code was
-written: tilting with the \emph{exact} committor gave measured relative variance
-$\sim\!10^{-30}$ (zero to machine precision), while tilting with an \emph{approximate}
-committor under pure biasing (no split/roulette) was \emph{worse than plain naive Monte
-	Carlo}. That fragility is exactly why deep-penetration transport uses weight windows to
-bound the weights rather than relying on reweighting alone, and it is the reason every
-learned-coordinate result in this paper uses Weighted Ensemble, not pure importance
-reweighting.
+\subsection{Adjoint--committor correspondence}\label{sec:identity}
 
-\subsubsection{Scope of the correspondence}\label{sec:scope}
-The identity above is exact at the level of linear algebra, not merely structurally
-similar, and it is worth stating precisely how far that goes. Production transport codes
-do not solve the continuous operator equation~\eqref{eq:adjoint} directly: phase space is
-first discretized into energy groups and a finite set of directions
-\cite{wagner1998, lewins1965}, reducing it to a finite linear system
-$(\mathbb I-\mathbf K)\boldsymbol\psi\dg=\boldsymbol\sigma_d$ for a transition operator
-$\mathbf K$ packaging streaming and scattering between cells, term for term the same
-system as Eq.~\eqref{eq:committor}. Nothing about $K$'s physical origin enters that algebra,
-which is exactly why the identity transfers to spin dynamics with no modification to the
-mathematics: it holds for \emph{any} Markov process with an absorbing target set.
+Consider a Markov process on configurations $s$ with transition kernel $K(s\rightarrow s')$. Let $A$ denote the initial or bulk set and $B$ the target set. The committor is defined as
+\begin{equation}
+h(s)=\Pr[\tau_B<\tau_A\mid s],
+\end{equation}
+with boundary conditions
+\begin{equation}
+h|_A=0,\qquad h|_B=1.
+\end{equation}
+On the transient states, the committor satisfies the backward equation
+\begin{equation}
+h(s)=\sum_{s'}K(s\rightarrow s')h(s'),
+\qquad\text{or}\qquad
+(\mathbb I-K)h=0 .
+\label{eq:committor}
+\end{equation}
 
-What does not transfer is the physical mechanism generating $K$. Transport's $K$ encodes a
-particle's free flight interrupted by scattering and absorption at rates set by
-cross-sections; spin dynamics' $K$ encodes single-spin-flip acceptance under a thermal bath
-at temperature $T$. There is no mean free path or cross-section in the spin problem, and a
-``walker'' is a bookkeeping device for one member of a population of independent
-simulation replicas, not a physical particle. The correspondence is a shared
-mathematical structure, not a shared physical mechanism.
+This equation has the same mathematical form as the discretized adjoint transport equation when the target set is treated as the response region. Consequently, the committor and adjoint importance function represent the same underlying quantity: the expected contribution of the current state to a specified future rare-event response. This correspondence is a direct consequence of the common Markov and linear-operator structure and is closely related to Doob's $h$-transform \cite{doob1984}. For the exact committor, the transformed transition kernel
+\begin{equation}
+\widetilde K(s\rightarrow s')
+=K(s\rightarrow s')\frac{h(s')}{h(s)}
+\end{equation}
+provides the zero-variance change of measure for the corresponding hitting probability \cite{chetrite2015,touchette2009}. The committor therefore provides a natural importance function for rare-event sampling, while approximate committors require a variance-control mechanism such as population splitting and resampling.
 
-Two asymmetries follow, in opposite directions. Spin systems are the \emph{easier} problem
-in one specific sense: multigroup/discrete-ordinates transport carries a discretization
-error that must be checked against measurement, since the exact continuous answer is rarely
-available at all, whereas a spin lattice's state space is already finite
-($2^N$ configurations, no truncation), which is exactly why $L=4$ can be checked against
-exact enumeration directly (\S\ref{sec:res-we}) with no discretization step to introduce
-error. Spin systems are \emph{harder} in the place it matters most: transport bins its
-importance function along a natural, low-dimensional, physically meaningful coordinate
-(position, direction, energy, fixed by the geometry of the shield), while spin
-configurations have no such coordinate (\S\ref{sec:models} shows the obvious candidate,
-magnetization, fails outright on the spin glass). That absence, not the linear algebra, is
-the actual reason this paper needs a \emph{learned} importance coordinate
-(\S\ref{sec:objectives}) at all.
+For the present study, the target probability is the dynamical hitting probability from a reference bulk state. This quantity is distinct from the static equilibrium probability of finding the system inside the target set. Under the mixing conditions assumed in transition-path theory, the dynamical and equilibrium descriptions can be related through equilibration within the bulk set before escape \cite{e2006}.
+
+\subsection{Scope of the correspondence}\label{sec:scope}
+
+The correspondence is mathematical and applies to any Markov process with an absorbing target set. After discretization, a transport problem can be represented by a finite transition operator,
+\begin{equation}
+(\mathbb I-\mathbf K)\boldsymbol{\psi}^{\dagger}
+=\boldsymbol{\sigma}_d ,
+\end{equation}
+which has the same linear structure as the committor equation in Eq.~\eqref{eq:committor}. The physical interpretation of $\mathbf K$, however, differs between applications. In radiation transport it represents particle streaming, scattering, and absorption, whereas in spin systems it represents transitions between configurations generated by the chosen spin dynamics.
+
+This distinction does not affect the underlying variance-reduction principle. In the present work, the adjoint-committor correspondence is therefore used to transfer the concept of an importance function from radiation transport to lattice spin dynamics, while replacing the analytically or numerically computed adjoint with a learned approximation of the committor.
+
+\subsection{Spin models and rare-event targets}\label{sec:models}
+
+Two $L\times L$ spin systems with periodic boundaries are considered under the Gibbs distribution
+\begin{equation}
+p(s)\propto \exp[-E(s)/T].
+\end{equation}
+The first is the two-dimensional ferromagnetic Ising model,
+\begin{equation}
+E(s)=-J\sum_{\langle ij\rangle}s_i s_j,\qquad J>0,
+\end{equation}
+for which magnetization provides a natural reaction coordinate. The second is the Edwards--Anderson (EA) spin glass, in which the couplings $J_{ij}=\pm J$ are quenched and disordered \cite{edwards1975,binder1986}. The EA model provides a more complex configuration space in which magnetization alone does not generally provide a sufficient description of the relevant rare-event pathways.
+
+Unless otherwise stated, simulations use $T=2.6$, above the critical temperature of the two-dimensional Ising model, with $L=16$ for production calculations and $L=4$ for exact enumeration. Single-spin-flip Metropolis dynamics are used to generate the underlying Markov process \cite{metropolis1953}.
+
+Rare-event targets are defined as nested energy thresholds,
+\begin{equation}
+B_k=
+\left\{
+s:\frac{E(s)}{N}\leq\epsilon_k
+\right\},
+\end{equation}
+where
+\begin{equation}
+\epsilon_k=E_{\min}^{\rm pilot}-k\Delta,
+\qquad
+\Delta=\frac{\mu-E_{\min}^{\rm pilot}}{10}.
+\label{eq:beyond}
+\end{equation}
+Here, $\mu$ and $E_{\min}^{\rm pilot}$ are the mean and minimum energy per spin obtained from a preliminary simulation. The parameter $k$ therefore provides a systematic rarity scale, while the nested structure
+$B_1\supset B_2\supset\cdots$
+allows the same target family to be used for multi-threshold variance reduction.
+
+\subsection{Weighted Ensemble and learned importance}\label{sec:we}
+
+Weighted Ensemble (WE) provides the population-control mechanism used in this study. A population of weighted replicas is periodically assigned to bins according to a progress or importance coordinate. Replicas are split or merged to approach a prescribed occupancy while conserving the total statistical weight, preserving unbiasedness for arbitrary binning coordinates \cite{huber1996,zhang2010}. In the present framework, the learned importance function $I_\theta(s)$ replaces a manually selected reaction coordinate and is used to define the WE bins.
+
+Three approaches are considered for estimating $I_\theta(s)$. The first uses a surrogate rollout objective in which short trajectories from sampled configurations provide a continuous measure of the best progress toward the target. The second uses a milestoning formulation in which intermediate thresholds provide local estimates of progress toward successive milestones. The third follows the self-consistency approach of Kim and Cai (2026), training the network to satisfy
+\begin{equation}
+I_\theta(s)\approx\sum_jK(s\rightarrow j)I_\theta(j),
+\end{equation}
+with appropriate boundary conditions at the target and bulk states.
+
+These approaches provide increasingly direct approximations to the committor while avoiding the difficulty of obtaining sufficient direct labels for extremely rare target events.
+
+\subsection{FW-CADIS global allocation}\label{sec:fwcadis-method}
+
+For the nested target family, FW-CADIS-inspired allocation is used to distribute computational effort across the importance bins. Given an estimated equilibrium occupancy $P(b)$ for bin $b$, the number of replicas assigned to that bin is parameterized as
+\begin{equation}
+N_b\propto [P(b)]^{-\alpha},
+\end{equation}
+where $\alpha=0$ corresponds to uniform allocation and $\alpha=1$ corresponds to the full inverse-occupancy weighting. The two cases use the same sampling and propagation procedures and differ only in the allocation rule.
+
+Performance is evaluated first by target coverage, i.e., the number of thresholds reached by the simulations, and subsequently by the uniformity of relative statistical error across the observed thresholds. This evaluation is complemented by the figure of merit in Eq.~\eqref{eq:fom}, allowing both statistical precision and computational cost to be considered.
+
 
 \FloatBarrier
 
-\subsection{Models}\label{sec:models}
-Two spin systems on an $L\times L$ square lattice with periodic boundaries, Gibbs measure
-$p(s)\propto e^{-E(s)/T}$: the ferromagnet ($E=-J\sum_{\langle ij\rangle}s_is_j$,
-$J>0$), where the magnetization $m$ is an obviously informative reaction coordinate; and
-the Edwards--Anderson (EA) spin glass ($J_{ij}=\pm J$ quenched-random per bond),
-whose low-energy states are disordered and frustrated so that $m\approx 0$ regardless of
-energy, the case a hand-picked coordinate is expected to fail on, and the one this paper
-focuses its harder tests on. All results below use $T=2.6$ (above $T_c\approx2.269$) unless
-noted; $L=16$ for full-scale results, $L=4$ for exact-enumeration gates. Resampling
-	interval $\tau$ (sweeps between WE split/merge operations) is stated explicitly because it
-must be comparable to the system's own correlation time, $\tau_{\rm corr}\approx1$ sweep at
-$T=2.6$, or splitting is undone by relaxation before the next resampling, degenerating every
-$\mathrm{WE}[\cdot]$ variant toward naive Monte Carlo (the diagnosis behind an earlier
-implementation issue in which a too-large $\tau$ produced exactly that silent degeneration).
-Unless noted otherwise, results using the \texttt{full} preset (\S\ref{sec:res-learned},
-\S\ref{sec:kimcai}, \S\ref{sec:fwcadis}) use $\tau=4$; milestoning results
-(Tables~\ref{tab:milestone}, \ref{tab:milestone2}, \S\ref{sec:milestone}) use $\tau=2$. A
-direct, quantitative measurement of $\tau_{\rm corr}$ (front-penetration vs.\ $\tau$ at
-matched cost) is a natural addition for a future revision but is not yet independently
-verified in this codebase and is not claimed here beyond the order-of-magnitude estimate
-above.
-
-Threshold ladder. Every rare-event target below is drawn from one nested family
-rather than chosen ad hoc per experiment. Given a pilot run's population, let
-$E^{\rm pilot}_{\min}$ be its deepest observed energy per spin and $\mu$ its bulk mean; the
-depth-$k$ target set is
-\begin{equation}
-	B_k=\{s: E(s)/N\le\epsilon_k\},\qquad
-	\epsilon_k=E^{\rm pilot}_{\min}-k\Delta,\qquad
-	\Delta=\frac{\mu-E^{\rm pilot}_{\min}}{10},
-	\label{eq:beyond}
-\end{equation}
-i.e.\ $k$ steps beyond the pilot's own most extreme observation, in units of one tenth of
-its observed dynamic range. This makes $k$ (\texttt{--beyond} throughout) a rarity dial
-that is portable across $L$, $T$, and disorder draw, and $B_k$ nested,
-$B_1\supset B_2\supset\cdots$: the structure both the FW-CADIS threshold family
-(\S\ref{sec:fwcadis}) and milestoning's progress labels (\S\ref{sec:milestone}) build on
-directly. $k$ is a genuine rarity dial in practice, not just in principle: at fixed $L=16$,
-$T=2.6$, $\hat\pi$ drops roughly one order of magnitude per step of $k$
-(Tables~\ref{tab:milestone}, \ref{tab:milestone2}), and it is where the ladder-difficulty
-discipline below bites hardest. Too large a $k$ places $B_k$ outside what any method can
-resolve at the compute available, and every comparison degrades to noise versus noise.
-
-\subsection{Weighted Ensemble}
-Weighted Ensemble (WE) is the statistical-mechanics name for split/Russian-roulette weight
-windows: a population of walkers, each carrying a weight, is periodically binned along a
-chosen coordinate; bins are equalised to a target occupancy by splitting over-weight bins
-and merging under-weight ones, conserving total weight exactly (hence unbiased for
-\emph{any} binning coordinate, good or bad), as illustrated in
-Figure~\ref{fig:we}. We validate the implementation against exact
-enumeration at $L=4$ before trusting any figure-of-merit comparison at scale.
-
-% --- FIGURE 2 ---
-\noindent
-\begin{minipage}{\linewidth}
-\centering
-\begin{tikzpicture}[scale=0.82,transform shape]
-	\foreach \i in {0,1,2,3,4}{
-		\draw[gray!35] (\i*2.1,0) rectangle (\i*2.1+2.1,4.6);
-		\node[font=\scriptsize,gray!55!black] at (\i*2.1+1.05,4.85){bin \i};}
-	\node[font=\scriptsize,anchor=east,align=right] at (-0.2,3.7){before};
-	\node[font=\scriptsize,anchor=east,align=right] at (-0.2,1.15){after};
-	\node[font=\scriptsize,anchor=north] at (5.25,-0.4){bulk $\longleftarrow$\quad progress coordinate $\lambda$\quad $\longrightarrow$ target};
-	\foreach \i/\n in {0/4,1/3,2/2,3/1}{
-		\foreach \k in {1,...,\n}{
-			\node[circle,fill=blue!55,minimum size=6.5pt,inner sep=0pt] at (\i*2.1+0.42+0.36*\k,3.6){};}}
-	\node[circle,fill=orange!85!black,minimum size=8pt,inner sep=0pt] at (4*2.1+1.05,3.6){};
-	\node[font=\scriptsize,orange!75!black,anchor=south] at (4*2.1+1.05,3.85){one walker, weight $w$};
-	\foreach \i in {0,1,2,3,4}{
-		\draw[-{Stealth[length=4.5pt]},thick,gray!60] (\i*2.1+1.05,3.25)--(\i*2.1+1.05,1.9);}
-	\node[font=\scriptsize,gray!55!black,anchor=west,align=left] at (10.6,2.6){equalise\\each bin\\to $N_0=3$};
-	\foreach \i in {0,1,2,3}{\foreach \k in {1,2,3}{
-			\node[circle,fill=blue!55,minimum size=6.5pt,inner sep=0pt] at (\i*2.1+0.42+0.42*\k,1.2){};}}
-	\foreach \k in {1,2,3}{
-		\node[circle,fill=orange!85!black,minimum size=8pt,inner sep=0pt] at (4*2.1+0.42+0.42*\k,1.2){};}
-	\draw[decorate,decoration={brace,amplitude=5pt,mirror},orange!80!black,thick]
-	(4*2.1+0.3,0.92)--(4*2.1+1.9,0.92);
-	\node[font=\scriptsize,orange!75!black,anchor=north,align=center] at (4*2.1+1.1,0.62){3 copies of weight $w/3$\\ total weight preserved};
-\end{tikzpicture}
-\captionof{figure}{The whole method in one picture. A lone walker that fluctuates into a deep bin is
-	\emph{split} into $N_0$ copies which then explore from there; crowded bulk bins are merged
-	back down. Weight bookkeeping keeps the estimator exactly unbiased, so \emph{any} binning
-	coordinate is safe: a poor one costs efficiency, never correctness.}
-\label{fig:we}
-\end{minipage}
-\par\vspace{0.8\baselineskip}
-
-\subsection{Two training objectives for the learned coordinate}\label{sec:objectives}
-A network $I_\theta(s)$ is trained to approximate the committor and then used as the WE
-binning coordinate, in place of a hand-picked one. Two training objectives are compared.
-
-Surrogate rollout label (this project's default). Binary committor labels collapse
-to all-zero for a genuinely rare target, so the network is instead trained to regress the
-\emph{best progress value reached} in $K$ short rollouts from each collected configuration,
-a dense, monotone surrogate for the committor, not the committor itself.
-
-Milestoning. A refinement of the surrogate objective: rather than one dense
-surrogate label per configuration, intermediate thresholds are placed along the ladder from
-bulk to target, and a configuration's label estimates its committor to the \emph{next}
-milestone rather than the final target directly, closer to the theoretical object of
-\S\ref{sec:identity} while avoiding all-zero label collapse.
-
-Self-consistency (Kim \& Cai, 2026). A label-free alternative: train $I_\theta$ by
-minimizing violation of its own self-consistency condition under the elementary
-single-spin-flip kernel, $\sum_j K(s\to j)\,I(j)=I(s)$, with boundary condition $I=1$ on the
-target. This equation, plus the target boundary alone, is under-determined: the constant
-solution $I\equiv1$ satisfies it everywhere, for any amount of training data. A second
-boundary condition, anchoring bulk-equilibrium states to a distinct reference value,
-breaks this degeneracy and is necessary, not optional.
-
-\subsection{FW-CADIS global allocation}
-Given a family of $K$ nested thresholds and a cheap pilot estimate of the equilibrium bin
-occupancy $P(b)$, FW-CADIS allocates walkers per bin $\propto (1/P(b))^\alpha$; $\alpha=0$
-recovers uniform allocation (the standard WE baseline), $\alpha=1$ is full FW-CADIS. Both
-settings use identical code, differing only in the allocation vector, which is what makes
-the comparison fair by construction. The metric is coverage first (how many of the
-$K$ thresholds were observed at all: a method that fails a deep threshold has infinite
-error there, and scoring only the thresholds it survived would reward failure by making it
-look artificially flat) and flatness second, the spread (max/min) of relative error
-across the observed thresholds.
-
-\subsection{Statistical methodology}
-Two disciplines are applied uniformly and are largely responsible for this paper's
-qualified conclusions rather than overclaimed ones.
-
-Ladder difficulty. Comparing methods in a regime where the baseline itself fails
-to observe the rare event (many zero-replicas) compares noise to noise. Every comparison
-below is reported at a depth where the reference method(s) reach 0, or close to 0,
-zero-replicas out of the replica count, found by backing off from a harder target until
-this holds, established as a working discipline after an early, uninterpretable
-$L=16$, deep-target result where 4--10 of 10 replicas failed across every method.
-
-Bootstrap confidence intervals. A point-estimate ratio of figures of merit from a
-handful of replicas is not, by itself, evidence of a real effect: FOM is a ratio
-involving a \emph{sample variance}, which is itself noisy at small replica counts. Every
-comparative claim reported as established in \S\ref{sec:results} is backed by a bootstrap
-95\% confidence interval (resampling the replica axis with replacement), and claims that do
-not survive this check are reported as open, not smoothed into a verdict.
-
-\FloatBarrier
 
 % ========================================================================
 \section{Results and Discussion}\label{sec:results}
@@ -461,15 +256,17 @@ different difficulties, \S\ref{sec:methods}).
 
 The committor identity of \S\ref{sec:identity} was checked on a solvable 1D absorbing
 random walk on $\{0,\dots,15\}$ before any lattice code was written, with the rare event
-(reaching state 15 before 0) calibrated to $\pi=1.14\times10^{-3}$. Tilting by the exact
-committor gave measured relative variance $\sim10^{-30}$ (zero to machine precision), a
-FOM improvement over naive Monte Carlo of many orders of magnitude, exactly as
-Eq.~\eqref{eq:committor}'s zero-variance property predicts. Tilting by an
-\emph{approximate} committor under pure biasing, with no weight-window control on the
-resulting weights, instead performed \emph{worse} than plain naive Monte Carlo. This is
-the reason every subsequent learned-coordinate result in this paper uses Weighted
-Ensemble (split/roulette) rather than raw importance reweighting: an imperfect importance
-estimate, used to reweight without bounding the weights, can be actively harmful.
+(reaching state 15 before 0) calibrated to $\pi=1.14\times10^{-3}$. Three samplers were
+compared. Against naive Monte Carlo as the baseline, tilting with the exact committor gave
+a measured relative variance of ${\sim}10^{-30}$, zero to machine precision, as the
+zero-variance argument of \S\ref{sec:identity} requires. Tilting with an
+\emph{approximate} committor under pure biasing, with no weight windows, was
+\emph{worse than naive}.
+
+That third outcome is the reason every subsequent learned-coordinate result in this paper
+uses Weighted Ensemble (split/roulette) rather than raw importance reweighting: an
+imperfect importance estimate, used to reweight without bounding the weights, can be
+actively harmful.
 
 \subsection{Weighted Ensemble: validated}\label{sec:res-we}
 At $L=4$, WE reproduces the exact enumerated $P(m)$ to a mean $|\Delta\ln P|$ of
@@ -477,9 +274,9 @@ At $L=4$, WE reproduces the exact enumerated $P(m)$ to a mean $|\Delta\ln P|$ of
 into the magnetization tail than naive Monte Carlo at matched cost: naive's hard floor is
 $|m|=0.886$ ($P\approx6\times10^{-6}$), where it returns zero samples and hence zero
 information; WE reaches $|m|=0.932$ ($P\approx2.4\times10^{-7}$). Separately, applying
-weight windows to the same \emph{approximate}, otherwise-fragile committor tilt described
-above recovered roughly a $2\times$ figure-of-merit improvement over the same tilt without
-them (measured FOM $1.24\times10^{-5}\to4.86\times10^{-4}$):
+weight windows to the same \emph{approximate}, otherwise-fragile tilt of
+\S\ref{sec:res-van} recovered roughly a $2\times$ figure-of-merit improvement
+over the same tilt without them (measured FOM $1.24\times10^{-5}\to4.86\times10^{-4}$):
 the robustness layer converts an actively harmful bias into a net improvement, exactly as
 the transport literature predicts. Magnetization is confirmed useless as a WE coordinate
 for the EA spin glass specifically: an early test recorded 10/10 zero-replica failure for
@@ -490,11 +287,22 @@ confirmation of the frustration argument in \S\ref{sec:methods}.
 Table~\ref{tab:prefix} reports the full-scale ($L=16$, 10 replicas) result on both models,
 at a target calibrated one step beyond the pilot's observed extreme.
 
-% --- TABLE 2 ---
+
+Two readings, both necessary (Table~\ref{tab:prefix}): naive Monte Carlo wins on raw FOM in both models at this
+rarity ($\sim\!4\times10^{-5}$), and on the spin glass, with $\mathrm{WE}[E]$ and
+$\mathrm{WE}[I_\theta]$ on equal footing (both 2/10 zero-replicas), the learned
+	coordinate has the higher FOM by $\sim$27\% ($6.36\times10^{-9}$ vs.\ $5.00\times10^{-9}$),
+the first apples-to-apples win for the learned coordinate over the best hand-picked
+one, and the direct predecessor of the milestoning result below. $\mathrm{WE}[m]$ fails in
+most spin-glass replicas (7/10), the direct empirical confirmation of the frustration
+argument in \S\ref{sec:methods}: magnetization carries essentially no information about
+this landscape.
+% --- TABLE 1 ---
 \begin{table}[H]
 \centering\small
 \caption{Full scale, both models. FOM vs.\ $\mathrm{WE}[m]$ in parentheses.}
 \label{tab:prefix}
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrrr}
 	\toprule
 	Model / Method & $\hat\pi$ & rel.\ s.d.\ & cost & FOM (vs.\ $\mathrm{WE}[m]$) & zero-rep.\ \\
@@ -513,21 +321,11 @@ at a target calibrated one step beyond the pilot's observed extreme.
 \end{tabular}
 \end{table}
 
-Two readings, both necessary (Table~\ref{tab:prefix}): naive Monte Carlo wins on raw FOM in both models at this
-rarity ($\sim\!4\times10^{-5}$), and on the spin glass, with $\mathrm{WE}[E]$ and
-$\mathrm{WE}[I_\theta]$ on equal footing (both 2/10 zero-replicas), the learned
-	coordinate has the higher FOM by $\sim$27\% ($6.36\times10^{-9}$ vs.\ $5.00\times10^{-9}$),
-the first apples-to-apples win for the learned coordinate over the best hand-picked
-one, and the direct predecessor of the milestoning result below. $\mathrm{WE}[m]$ fails in
-most spin-glass replicas (7/10), the direct empirical confirmation of the frustration
-argument in \S\ref{sec:methods}: magnetization carries essentially no information about
-this landscape.
-
 Is $I_\theta$ actually informative, or just a noisy copy of energy? A separate
 diagnostic regresses the rare-event label on energy alone, on $I_\theta$ alone, and on
 both, at matched training budget (Table~\ref{tab:diagnostic}).
 
-% --- TABLE 3 ---
+% --- TABLE 2: diagnostic regression (relocated from the appendix) ---
 \begin{table}[H]
 \centering\small
 \caption{Incremental-$R^2$ diagnostic, EA spin glass, $L=16$, matched training budget
@@ -554,15 +352,17 @@ consistent with the FOM advantage measured directly in Table~\ref{tab:prefix}.
 Pushing rarer does not (yet) resolve the naive-vs-learned question. Rerunning one
 threshold step rarer (``beyond=2'') leaves the comparison uninterpretable rather than
 resolving it in either direction: 4--10 of 10 replicas fail across every method at this
-depth (naive itself now has 4/10 zero-replicas, versus 1/10 at the shallower target), so
-the numbers are noise over noise, not a result. This is the run that established the
-ladder-difficulty discipline of \S\ref{sec:methods} for the remainder of the project.
-This rarity is stretching every method's budget, not only the weight-window ones, so a
-trustworthy comparison here needs a different fix than anything tried at the shallower
-depth. This motivated the milestoning objective below, which is a change to the training
-label rather than to the weight-window schedule; Table~\ref{tab:milestone2} in
-\S\ref{sec:milestone} reproduces this exact run alongside its milestoning-based
-resolution at the same depth, side by side.
+depth (naive 4/10, $\mathrm{WE}[E]$ 5/10, $\mathrm{WE}[I_\theta]$ 7/10, and
+$\mathrm{WE}[m]$ 10/10, i.e.\ no estimate at all), so the numbers are noise over noise,
+not a result. This
+is the run that established the ladder-difficulty discipline of \S\ref{sec:methods} for the
+remainder of the project.
+
+Notably, \emph{naive itself} now has 4/10 zero-replicas (versus 1/10 at the shallower
+target). This rarity is stretching every method's budget, not only the weight-window
+ones, so a trustworthy comparison here needs a different fix than anything tried at the
+shallower depth. This motivated the milestoning objective below, which is a change to the
+training label rather than to the weight-window schedule.
 
 \subsection{Milestoning: a clean regime for comparison, but wildly seed-dependent}\label{sec:milestone}
 On the EA spin glass at $L=16$, one threshold step beyond the pilot's observed extreme
@@ -570,17 +370,18 @@ On the EA spin glass at $L=16$, one threshold step beyond the pilot's observed e
 most-trustworthy regime obtained in this project by the usual ladder-difficulty standard
 (Table~\ref{tab:milestone}).
 
-% --- TABLE 5 ---
+% --- TABLE 3: 17-seed milestoning sweep (relocated from the appendix) ---
 \begin{table}[H]
-\centering\small
+\centering\footnotesize
 \caption{EA spin glass, $L=16$, $T=2.6$, one step beyond the pilot extreme, 10 replicas,
 	milestoning labels, seventeen independent training runs of the identical configuration.
 	Every method observed the event in every replica in every run; naive,
 	$\mathrm{WE}[m]$, and $\mathrm{WE}[E]$ are bit-identical across all runs (deterministic,
 	and $\mathrm{WE}[E]$ does not depend on the trained network). Seed 0 was run twice
-	independently and reproduced bit-for-bit, confirming the seeding fix below is
-	complete.}
+	independently and reproduced bit-for-bit, confirming that the seeding fix described in
+	the text is complete.}
 \label{tab:milestone}
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrr}
 	\toprule
 	Method & $\hat\pi$ & rel.\ s.d.\ & FOM & zero-replicas \\
@@ -628,7 +429,8 @@ most-trustworthy regime obtained in this project by the usual ladder-difficulty 
 \end{tabular}
 \end{table}
 
-Every $\mathrm{WE}[I_\theta]$ row is, as far as the pipeline is concerned, the
+Every $\mathrm{WE}[I_\theta]$ row of Table~\ref{tab:milestone} is, as far as the pipeline
+is concerned, the
 \emph{same experiment}: identical target, identical training data (from cached labels),
 identical hyperparameters. The only thing that varies is the network's random weight
 initialization (\texttt{torch.manual\_seed} was absent from this driver; found and
@@ -664,31 +466,19 @@ Extrapolating the observed CI-width-vs-$n$ scaling against the current point
 the honest terminus of the comparison, not an open
 thread: seventeen seeds is already an unusually thorough characterisation, the point
 estimate is stably positive but modest ($\sim\!1.2\times$) across four independent
-checkpoints (Figure~\ref{fig:seedsweep}), and the CI cannot be closed by seed count alone
+checkpoints, and the CI cannot be closed by seed count alone
 at a cost proportionate to
 the question. Naive Monte Carlo has the best raw FOM in every run
 at this specific rarity ($\sim\!5\times10^{-5}$) regardless of seed. Variance
 reduction has not yet earned back its overhead here, the same lesson demonstrated in
-miniature by the 1D toy-walk result in \S\ref{sec:identity}.
-
-% --- FIGURE 4 ---
-\noindent
-\begin{minipage}{\linewidth}
-\centering
-\includegraphics[width=0.92\textwidth]{figs/fig_seed_sweep.pdf}
-\captionof{figure}{Left: all 17 per-seed FOM ratios (sorted), with the pooled two-level-bootstrap
-	median and 95\% CI shaded. Right: the four tracked checkpoints as seeds were added,
-	the point estimate bounces while the CI width shrinks monotonically, the expected
-	signature of averaging down noise around a small, sign-unresolved effect.}
-\label{fig:seedsweep}
-\end{minipage}
-\par\vspace{0.8\baselineskip}
+miniature by the 1D toy-walk result in \S\ref{sec:res-van}.
 
 A plausible infrastructure explanation was tested and ruled out. One candidate
 cause for the seed-to-seed spread is that $\mathrm{WE}[I_\theta]$'s bin range was left
 adaptive (auto-ranging from the population actually explored) rather than calibrated to
-the coordinate's own scale, unlike $\mathrm{WE}[E]$ and $\mathrm{WE}[m]$. A diagnostic
-regression (App.\ data, \texttt{05\_neural\_importance/diagnose\_coordinate.py}) had
+the coordinate's own scale, unlike $\mathrm{WE}[E]$ and $\mathrm{WE}[m]$. The diagnostic
+regression of Table~\ref{tab:diagnostic}
+(\texttt{05\_neural\_importance/diagnose\_coordinate.py}) had
 already shown $I_\theta$ carries real predictive signal beyond energy (incremental
 $R^2=+0.25$), with the verdict: if it still does not beat $\mathrm{WE}[E]$, look at the
 schedule, not the map. Two calibrations were tried: a theoretical one from the label's
@@ -707,43 +497,14 @@ seed variance and is further evidence the variance is intrinsic to what each tra
 network learns, not an artifact of how its output is binned.
 
 Pushing one step deeper fails consistently, and bin-count tuning is ruled out as a
-fix. Table~\ref{tab:milestone2} reports every configuration tried at one threshold step
-rarer (``beyond=2''): the default bin count at two replica counts, and a $1.8\times$ larger
-bin count. $\mathrm{WE}[I_\theta]$ scores \emph{worse} than $\mathrm{WE}[E]$ in all three.
-The same nominal depth was reached two different ways, shown side by side below: the
-surrogate-labeled network from \S\ref{sec:res-learned}, where the comparison was noise
-over noise, and the milestoning-labeled network, which reaches this depth cleanly
-(0/10 zero-replicas throughout) but still does not favor $\mathrm{WE}[I_\theta]$.
-
-% --- TABLE 4/6 (merged) ---
-\begin{table}[H]
-\centering\small
-\caption{EA spin glass, $L=16$, one threshold step rarer than the shallower baseline in
-	each row-group, reached two different ways. Top: surrogate-labeled network (same
-	training as Table~\ref{tab:prefix}), one step rarer than Table~\ref{tab:prefix} --- not
-	a trustworthy comparison, shown for reference only (see text). Bottom: milestoning
-	labels (same training as Table~\ref{tab:milestone}), one step rarer than
-	Table~\ref{tab:milestone}, default configuration ($n_{\rm bins}=50$, $R=10$) --- a
-	clean regime.}
-\label{tab:beyond2}
-\label{tab:milestone2}
-\begin{tabular}{lrr}
-	\toprule
-	Method & FOM & zero-rep.\ \\
-	\midrule
-	\multicolumn{3}{l}{\emph{Surrogate labels, one step rarer than Table~\ref{tab:prefix} --- not trustworthy}} \\
-	naive & $7.43\times10^{-9}$ & 4/10 \\
-	$\mathrm{WE}[m]$ & $0$ & 10/10 \\
-	$\mathrm{WE}[E]$ & $2.18\times10^{-9}$ & 5/10 \\
-	$\mathrm{WE}[I_\theta]$ & $1.56\times10^{-9}$ & 7/10 \\
-	\multicolumn{3}{l}{\emph{Milestoning labels, one step rarer than Table~\ref{tab:milestone} --- clean regime}} \\
-	naive & $3.51\times10^{-8}$ & 0/10 \\
-	$\mathrm{WE}[m]$ & $7.73\times10^{-9}$ & 0/10 \\
-	$\mathrm{WE}[E]$ & $9.21\times10^{-9}$ & 0/10 \\
-	$\mathrm{WE}[I_\theta]$ & $8.36\times10^{-9}$ & 0/10 \\
-	\bottomrule
-\end{tabular}
-\end{table}
+	fix. Every configuration tried at one threshold step rarer (``beyond=2'') was scored:
+the default bin count ($n_{\rm bins}=50$) at two replica counts, and a $1.8\times$ larger
+bin count. $\mathrm{WE}[I_\theta]$ scores \emph{worse} than $\mathrm{WE}[E]$ in all
+three. At the default configuration ($n_{\rm bins}=50$, $R=10$), where every method
+reaches 0/10 zero-replicas, the FOMs are naive $3.51\times10^{-8}$, $\mathrm{WE}[E]$
+$9.21\times10^{-9}$, $\mathrm{WE}[I_\theta]$ $8.36\times10^{-9}$, and $\mathrm{WE}[m]$
+$7.73\times10^{-9}$: naive ahead by roughly $4\times$, and the learned coordinate below
+the hand-picked one.
 
 Two further configurations were tried in an attempt to fix this with bin resolution instead
 of accepting it as structural: doubling the replica count ($R=10\to20$, same $n_{\rm
@@ -770,8 +531,8 @@ the bin-resolution finding above.
 The resampling interval between split/merge operations matters: it must be comparable to
 the system's own correlation time ($\sim$1 sweep at $T=2.6$), or split walkers fully relax
 and forget their split origin before the next resampling, degenerating every
-$\mathrm{WE}[\cdot]$ variant to naive Monte Carlo with bookkeeping overhead. Table~\ref{tab:milestone}
-and Table~\ref{tab:milestone2} use an interval of 2 sweeps.
+$\mathrm{WE}[\cdot]$ variant to naive Monte Carlo with bookkeeping overhead. Every
+milestoning result in this section uses an interval of 2 sweeps.
 
 \subsubsection{A deep-ensemble follow-up: the seed variance is reducible, but it converges
 	to a loss}
@@ -787,7 +548,7 @@ step. $K=1$ reproduces the original single-net code path exactly (verified bit-i
 output on a smoke config). Five independent ensembles ($K=5$ each, base seeds 20--24) were
 run at the identical configuration as Table~\ref{tab:milestone} (beyond$=1$, $\tau=2$, $R=10$).
 
-\begin{table}[h]
+\begin{table}[H]
 	\centering\small
 	\caption{Five independent $K{=}5$ deep-ensemble runs, identical configuration to
 		Table~\ref{tab:milestone}. FOM ratio is $\mathrm{WE}[I_\theta]/\mathrm{WE}[E]$ on the
@@ -809,7 +570,8 @@ run at the identical configuration as Table~\ref{tab:milestone} (beyond$=1$, $\t
 Two findings, both against the ensemble. First, ensembling did what it was
 supposed to do to the \emph{variance}: the five ratios (Table~\ref{tab:ensemble}) span
 $0.46$--$0.91\times$, far tighter than the seventeen single-net seeds' $-52\%$ to
-$+112\%$ spread. But the value it converges toward is a loss, not the earlier
+$+112\%$ spread in Table~\ref{tab:milestone}. But the value it converges toward is a loss,
+not the earlier
 $\sim\!1.2\times$ point estimate: a two-level bootstrap (outer over the 5 runs, inner over
 each run's 10 replicas, identical machinery to Table~\ref{tab:milestone}) gives a
 geometric-mean ratio of $0.74\times$, 95\% CI $[0.43, 1.32]$, not significant, but on the
@@ -840,9 +602,29 @@ below parity with the hand-picked energy coordinate, and once its real inference
 counted at all, the comparison is a decisive, statistically significant loss. This is a
 completed, negative result: the seed-variance question of Table~\ref{tab:milestone} is
 resolved, not left open, by the one lever that actually attacked its diagnosed cause.
+Figure~\ref{fig:ensemble} shows both halves of that verdict together, the variance
+collapsing as intended and the centre of the distribution settling below parity.
+
+% --- FIGURE: deep-ensemble resolution ---
+\noindent
+\begin{minipage}{\linewidth}
+\centering
+\includegraphics[width=0.92\textwidth]{figs/fig_ensemble.pdf}
+\captionof{figure}{Deep ensembling does what it was built to do to the variance, and
+	converges to a loss. Left: per-run FOM ratios against $\mathrm{WE}[E]$, the 17
+	single-net seeds of Table~\ref{tab:milestone} against the five $K{=}5$ ensembles of
+	Table~\ref{tab:ensemble}; the spread narrows from $0.48$--$2.12\times$ to
+	$0.46$--$0.91\times$, and every ensemble run lands below parity. Right: the three
+	pooled two-level-bootstrap estimates. The single-net pool sits above 1 and the
+	ensemble pool below it, both with intervals crossing parity; once the ensemble's real
+	inference cost is counted at all (wall-clock rather than MC-sweep cost), the interval
+	clears parity outright. This is the only confidence interval in the paper that does.}
+\label{fig:ensemble}
+\end{minipage}
+\par\vspace{0.8\baselineskip}
 
 \subsection{The Kim \& Cai head-to-head}\label{sec:kimcai}
-The self-consistency training objective of \S\ref{sec:objectives} was implemented, gated
+The self-consistency training objective of \S\ref{sec:we} was implemented, gated
 against exact enumeration at $L=4$ (learned-coordinate unbiasedness ratio 1.004), and run
 head-to-head against the surrogate objective, first at laptop scale, then at full scale.
 
@@ -858,27 +640,10 @@ comparison at full scale.
 The result, at full scale. At $L=16$, the shallowest calibrated target (``beyond''\,$=0$,
 the easiest regime in which every method reaches 0--1 zero-replicas out of 10), the
 self-consistency coordinate's \emph{point estimate} exceeds both the hand-picked energy
-coordinate and this project's own surrogate coordinate (Table~\ref{tab:kimcai}).
-
-% --- TABLE 7 ---
-\begin{table}[H]
-\centering\small
-\caption{EA spin glass, $L=16$, shallowest calibrated target, 10 replicas. Point estimates
-	only; see confidence intervals below.}
-\label{tab:kimcai}
-\begin{tabular}{lrrrr}
-	\toprule
-	Method & $\hat\pi$ & rel.\ s.d.\ & FOM & zero-replicas \\
-	\midrule
-	naive & $3.36\times10^{-5}$ & 0.294 & $8.60\times10^{-8}$ & 0/10 \\
-	$\mathrm{WE}[m]$ & $3.94\times10^{-5}$ & 0.553 & $8.81\times10^{-8}$ & 1/10 \\
-	$\mathrm{WE}[E]$ & $3.39\times10^{-5}$ & 0.671 & $1.33\times10^{-8}$ & 0/10 \\
-	$\mathrm{WE}[I_\theta]$ surrogate & $2.92\times10^{-5}$ & 0.904 & $8.62\times10^{-9}$ & 1/10 \\
-	$\mathrm{WE}[I_\theta]$ self-consistent & $4.01\times10^{-5}$ & 0.655 &
-	$1.62\times10^{-8}$ & 0/10 \\
-	\bottomrule
-\end{tabular}
-\end{table}
+coordinate and this project's own surrogate coordinate: FOM $1.62\times10^{-8}$ for
+self-consistency against $1.33\times10^{-8}$ for $\mathrm{WE}[E]$ and $8.62\times10^{-9}$
+for the surrogate objective (naive and $\mathrm{WE}[m]$ reach $8.60\times10^{-8}$ and
+$8.81\times10^{-8}$ at this shallow, still naive-favorable depth).
 
 This point estimate does not survive a bootstrap check, and the effect shrinks
 	under replication. Both configurations were re-run with per-replica values retained, and
@@ -890,24 +655,32 @@ common-random-numbers attempt of \S\ref{sec:fwcadis}). Since training here is a 
 independent of replica count (a deterministic seed; only the cheap evaluation step scales
 with $R$), tripling to $R=30$ cost roughly six additional minutes on top of the
 $\sim$76-minute training already paid, cheap enough to just check
-(Table~\ref{tab:kimcaiboot}).
+(Table~\ref{tab:kimcaiboot}, first two rows of each block).
 
-% --- TABLE 8 ---
+% --- TABLE: merged Kim & Cai bootstrap (both depths) ---
 \begin{table}[H]
 \centering\small
-\caption{Bootstrapped FOM ratios, full scale ($L=16$), shallowest calibrated target, at
-	$R=10$ and after tripling to $R=30$. Ratio $>1$ favors the self-consistency objective.}
+\caption{Bootstrapped FOM ratios, full scale ($L=16$), for the self-consistency objective
+	against this project's surrogate and against the hand-picked energy coordinate. Ratio
+	$>1$ favors self-consistency. The shallowest calibrated target
+	($\mathrm{beyond}=0$) is discussed first; the $\mathrm{beyond}=1$ rows are taken up
+	below. No interval excludes 1.}
 \label{tab:kimcaiboot}
 \begin{tabular}{lrrrr}
 	\toprule
-	Comparison & $R$ & FOM ratio (median) & 95\% CI & significant? \\
+	Comparison & beyond & $R$ & FOM ratio (median) & 95\% CI \\
 	\midrule
-	self-consistent / surrogate & 10 & 1.83 & $[0.49,\,9.23]$ & no \\
-	self-consistent / surrogate & 30 & 1.39 & $[0.65,\,2.95]$ & no \\
-	self-consistent / $\mathrm{WE}[E]$ & 10 & 1.19 & $[0.33,\,4.95]$ & no \\
-	self-consistent / $\mathrm{WE}[E]$ & 30 & 1.07 & $[0.55,\,2.09]$ & no \\
+	self-consistent / surrogate & 0 & 10 & 1.83 & $[0.49,\,9.23]$ \\
+	self-consistent / surrogate & 0 & 30 & 1.39 & $[0.65,\,2.95]$ \\
+	self-consistent / surrogate & 1 & 10 & 1.14 & $[0.27,\,4.81]$\textsuperscript{a} \\
+	self-consistent / $\mathrm{WE}[E]$ & 0 & 10 & 1.19 & $[0.33,\,4.95]$ \\
+	self-consistent / $\mathrm{WE}[E]$ & 0 & 30 & 1.07 & $[0.55,\,2.09]$ \\
+	self-consistent / $\mathrm{WE}[E]$ & 1 & 10 & 1.33 & $[0.34,\,5.74]$ \\
 	\bottomrule
 \end{tabular}
+\\[2pt]
+{\footnotesize\textsuperscript{a}Zero-replicas at this depth: 2/10 for the surrogate
+	objective against 1/10 for self-consistency.}
 \end{table}
 
 At $R=10$ neither ratio is significant. At $R=30$, both confidence intervals tighten
@@ -922,26 +695,11 @@ needs to re-run to extend $R$ further, rather than repaying the fixed training c
 Does the advantage grow at greater depth, where the surrogate objective's known
 	weaknesses should bite harder? We tested the natural next question directly: rerunning
 both objectives one threshold step deeper (``beyond''\,$=1$, the same depth as
-Table~\ref{tab:milestone}). Table~\ref{tab:kimcaideep} reports the result.
-
-% --- TABLE 9 ---
-\begin{table}[H]
-\centering\small
-\caption{Same comparison as Table~\ref{tab:kimcaiboot}, one threshold step deeper
-	(``beyond''\,$=1$ instead of $0$), $R=10$.}
-\label{tab:kimcaideep}
-\begin{tabular}{lrrrr}
-	\toprule
-	Comparison & FOM ratio (median) & 95\% CI & zero-rep.\ (surr.\ / self-cons.) \\
-	\midrule
-	self-consistent / surrogate & 1.14 & $[0.27,\,4.81]$ & 2/10 / 1/10 \\
-	self-consistent / $\mathrm{WE}[E]$ & 1.33 & $[0.34,\,5.74]$ & --- \\
-	\bottomrule
-\end{tabular}
-\end{table}
+Table~\ref{tab:milestone}); those are the $\mathrm{beyond}=1$ rows of
+Table~\ref{tab:kimcaiboot}.
 
 Not significant, as expected at $R=10$, but the \emph{direction} of the change from
-Table~\ref{tab:kimcaiboot} is itself informative and runs counter to the hypothesis being
+the $\mathrm{beyond}=0$ rows is itself informative and runs counter to the hypothesis being
 tested: the point-estimate gap versus the surrogate \emph{shrank} at this deeper target
 ($1.83\times\to1.14\times$) rather than growing, even as the self-consistency coordinate's
 relative \emph{reliability} advantage held (fewest zero-replicas of any weight-window
@@ -955,8 +713,8 @@ to struggle more.
 \begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=0.85\textwidth]{figs/fig_kimcai.pdf}
-\captionof{figure}{All six FOM-ratio comparisons from Tables~\ref{tab:kimcaiboot}
-	and~\ref{tab:kimcaideep} as a forest plot. Every interval crosses the ratio-1
+\captionof{figure}{All six FOM-ratio comparisons of Table~\ref{tab:kimcaiboot} as a
+	forest plot. Every interval crosses the ratio-1
 	reference line (dashed); the $R{=}30$ intervals (recomputed here directly from the
 	retained per-replica arrays via the same replica-resampling bootstrap) are visibly
 	tighter than their $R{=}10$ counterparts without the median crossing to the other
@@ -978,7 +736,7 @@ at all. We calibrated where naive genuinely breaks down, at the same $L=16$, $T=
 configuration used throughout, using the custom-preset naive budget
 ($\mathrm{naive\_chains}=150$, $\mathrm{naive\_sweeps}=3500$; Table~\ref{tab:deeprare}):
 
-\begin{table}[h]
+\begin{table}[H]
 	\centering\small
 	\caption{Naive-only depth calibration, 10 replicas, custom-preset budget. Naive is
 		fully reliable through $\mathrm{beyond}=2$, starts failing at $\mathrm{beyond}=3$,
@@ -1006,10 +764,10 @@ essentially none (naive: 1/30, driven by a single lucky hit with rel.\ s.d.\ $=5
 a meaningful measurement). $\mathrm{beyond}=4$ (threshold $E/N=-1.119$) with this scaled
 budget ($n_{\rm bins}=80$, $n_{\rm per\ bin}=40$, $\mathrm{we\_iter}=3000$, $\tau=2$) is
 the deepest, most naive-adverse regime tested anywhere in this paper, and the first
-place the self-consistency objective (\S\ref{sec:objectives}) was tested outside the
+place the self-consistency objective (\S\ref{sec:we}) was tested outside the
 shallow regime where naive wins anyway (Table~\ref{tab:selfconsistdeep}).
 
-\begin{table}[h]
+\begin{table}[H]
 	\centering\small
 	\caption{EA spin glass, $L=16$, $\mathrm{beyond}=4$, self-consistency objective,
 		three independent training seeds, 30 replicas each. $\mathrm{WE}[E]$/$\mathrm{WE}[m]$/naive
@@ -1040,6 +798,27 @@ learned coordinate anywhere in this paper. The three per-network rates ($63\%, 6
 70\%$) are close enough to each other, unlike the milestoning ensemble's wide
 net-to-net FOM swings (\S\ref{sec:ensemble}), that pooling them as a single binomial
 comparison is a reasonable approximation rather than one masking real heterogeneity.
+Figure~\ref{fig:deeprare} plots that comparison alongside the depth calibration of
+Table~\ref{tab:deeprare}, which is what makes it meaningful: the gap opens only outside
+the band in which every other comparison in this paper was run.
+
+% --- FIGURE: deep-rare reliability ---
+\noindent
+\begin{minipage}{\linewidth}
+\centering
+\includegraphics[width=0.92\textwidth]{figs/fig_deeprare.pdf}
+\captionof{figure}{The paper's one statistically significant positive result, and the
+	depth at which it was obtained. Left: fraction of 30 replicas in which each method
+	observed the rare event at $\mathrm{beyond}=4$
+	(Table~\ref{tab:selfconsistdeep}), with Wilson 95\% intervals; white marks on the
+	pooled bar are the three individual networks (19/30, 20/30, 21/30). Right: the
+	naive-only depth calibration of Table~\ref{tab:deeprare}. Naive Monte Carlo is fully
+	reliable through $\mathrm{beyond}=2$, the band in which every other comparison in
+	this paper was run, and categorically blind at $\mathrm{beyond}=4$, where the
+	self-consistency coordinate's advantage appears.}
+\label{fig:deeprare}
+\end{minipage}
+\par\vspace{0.8\baselineskip}
 
 FOM: directionally consistent, not yet significant. All three seeds' FOM
 ratios sit above 1 ($1.29\times, 1.07\times, 1.04\times$) with none of the sign-flipping
@@ -1072,7 +851,7 @@ directly with a lattice-size scan at fixed $T=2.6$, $\mathrm{beyond}=1$, $\tau=2
 \{8,16,24,32\}$, naive\_chains/naive\_sweeps held fixed across all four so that naive's
 cost is genuinely $L$-independent as the argument requires (Table~\ref{tab:lscaling}).
 
-% --- TABLE 10 ---
+% --- TABLE 8 ---
 \begin{table}[H]
 \centering\small
 \caption{EA spin glass, $\mathrm{beyond}=1$, naive vs.\ the best-performing WE variant at
@@ -1093,7 +872,7 @@ cost is genuinely $L$-independent as the argument requires (Table~\ref{tab:lscal
 
 Naive wins at every tested $L$, and the margin does not shrink; if anything it
 	grows slightly and then plateaus, from $1.9\times$ at $L=8$ to $\sim\!3.5\times$ by
-	$L=16$ and beyond (Figure~\ref{fig:lscaling}). This holds across nearly five orders of magnitude of target rarity
+	$L=16$ and beyond (Figure~\ref{fig:lscaling}). This holds across a factor of ${\sim}40$ in target rarity
 ($\hat\pi$ from $1.8\times10^{-4}$ down to $4.2\times10^{-6}$) and is robust to which WE
 variant is best at a given $L$ (the winner changes: $\mathrm{WE}[E]$ at $L=8,24$,
 $\mathrm{WE}[m]$ at $L=16$, $\mathrm{WE}[I_\theta]$ at $L=32$). This directly answers the
@@ -1120,7 +899,8 @@ at $L=32$, consistent with a learned coordinate's advantage over hand-picked one
 mattering more as the landscape gets harder. We do not treat this as established: this
 scan predates the seeding fix of \S\ref{sec:milestone}, so each $\mathrm{WE}[I_\theta]$
 entry in Table~\ref{tab:lscaling} is one random draw from an uncharacterized distribution
-over training outcomes, the same seed-variance problem later characterized in full there.
+over training outcomes, the same seed-variance problem characterized in full in
+Table~\ref{tab:milestone}.
 Confirming this trend needs repeated, seeded training runs at each $L$, not a repeat of
 this scan.
 
@@ -1149,7 +929,7 @@ Laptop scale first ($L=12$, $R=6$): a real-looking, but ultimately non-replicati
 this first laptop-scale sweep through the final ferromagnet control; its top group sweeps
 $\alpha$ against uniform allocation on 6 thresholds spanning progress $0.668\to1.153$.
 
-% --- TABLE 11 ---
+% --- TABLE 9 ---
 \begin{table}[H]
 \centering\small
 \caption{FW-CADIS across every configuration tested, laptop scale through the ferromagnet
@@ -1289,15 +1069,17 @@ paper that grew \emph{more}, not less, confident under additional scrutiny.
 The learned coordinate trained on milestoned committor labels does not beat the
 	hand-picked energy coordinate. A deep-ensemble follow-up
 (\S\ref{sec:ensemble}) designed to resolve the single-net seed sweep's ambiguous
-$1.19\times$ point estimate instead settled it in the negative, with a 95\% CI
+$1.19\times$ point estimate (Table~\ref{tab:milestone}) instead settled it in the negative,
+with a 95\% CI
 ($0.087\times$, $[0.051,0.155]$, on a corrected cost accounting) that excludes
-parity, the only bootstrap interval in this paper that does.
+parity, the only bootstrap interval in this paper that does (Figure~\ref{fig:ensemble}).
 
 At a depth where naive is provably blind, the self-consistency-trained
 	coordinate wins significantly. It finds the rare event
 significantly more often than the hand-picked energy coordinate: pooled across three
 independent networks, $66.7\%$ versus $40.0\%$ (Fisher exact $p=0.017$,
-\S\ref{sec:deeprare}), the paper's one statistically significant positive result, and
+\S\ref{sec:deeprare}, Figure~\ref{fig:deeprare}), the paper's one statistically
+significant positive result, and
 its clearest evidence that the transport toolkit's distinctive machinery earns its keep
 specifically where naive cannot compete.
 
@@ -1316,7 +1098,8 @@ The learned coordinate trained on milestoned committor labels is the clearest ca
 	of an apparent win reversing under scrutiny, and remains a genuine loss even after the
 most thorough attempt in this paper to rescue it. A first training run beat the hand-picked
 energy coordinate by $+14\%$; seventeen retraining runs of the identical configuration gave
-outcomes from $-52\%$ to $+112\%$, and pooling them left a positive but non-significant
+outcomes from $-52\%$ to $+112\%$ (Table~\ref{tab:milestone}), and pooling them left a
+positive but non-significant
 point estimate (\S\ref{sec:milestone}). Rather than add more single-net seeds, a
 deep-ensemble follow-up attacked the diagnosed noise source directly and settled the
 question in the negative, exposing a cost-accounting gap along the way that turned a
@@ -1409,6 +1192,7 @@ The author gratefully acknowledges the support provided by Fahad Bin Sultan Univ
 % To print the CRediT authorship contribution details
 \printcredits
 
+% ========================================================================
 %% Bibliography
 \bibliographystyle{unsrtnat}
 \bibliography{cas-refs}

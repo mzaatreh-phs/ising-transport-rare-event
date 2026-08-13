@@ -1,0 +1,356 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,xcolor,booktabs,microtype}
+\usepackage[labelfont=bf,font=small]{caption}
+\usepackage{mathpazo}
+\usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
+
+\title{\vspace{-1.2cm}Adjoint Transport Theory for Rare-Event Sampling in Spin Systems\\[2pt]
+	\large Output data appendix --- all result tables, no figures}
+\author{}\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1.3cm}
+\begin{center}\rule{0.62\textwidth}{0.4pt}\end{center}
+
+\noindent This document collects every result table produced over the course of the
+project, extracted from \texttt{paper.tex}. It contains no figures and no narrative
+discussion --- see the paper itself for methods, interpretation, and honesty
+conventions (which zero-replica counts and confidence intervals mean, and which
+findings are established vs.\ suggestive). Tables are grouped by topic in the same
+order they appear in the paper.
+
+\section{Zero-variance demonstration and full-scale baseline}
+
+\begin{table}[h]
+	\centering\small
+	\caption{1D absorbing walk, exact committor available in closed form. FOM relative to naive.}
+	\label{tab:demo}
+	\begin{tabular}{p{5.4cm}p{4.4cm}r}
+		\toprule
+		Method & measured relative variance & FOM vs.\ naive \\
+		\midrule
+		naive Monte Carlo & --- (baseline) & $1\times$ \\
+		exact-committor tilt & $\sim10^{-30}$ (zero to machine precision) & $\gg1\times$ \\
+		approximate-committor tilt, pure biasing (no weight windows) & --- & worse than naive \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Full scale, both models. FOM vs.\ $\mathrm{WE}[m]$ in parentheses.}
+	\label{tab:prefix}
+	\begin{tabular}{lrrrrr}
+		\toprule
+		Model / Method & $\hat\pi$ & rel.\ s.d.\ & cost & FOM (vs.\ $\mathrm{WE}[m]$) & zero-rep.\ \\
+		\midrule
+		\multicolumn{6}{l}{\emph{Ferromagnet}, target $|m|\ge0.9297$} \\
+		naive & $9.52\times10^{-6}$ & 0.441 & $1.34\times10^{8}$ & $3.83\times10^{-8}$ ($2.92\times$) & 0/10 \\
+		$\mathrm{WE}[m]$ & $1.05\times10^{-5}$ & 0.614 & $2.02\times10^{8}$ & $1.31\times10^{-8}$ ($1.00\times$) & 0/10 \\
+		$\mathrm{WE}[E]$ & $1.09\times10^{-5}$ & 1.343 & $9.81\times10^{7}$ & $5.65\times10^{-9}$ ($0.43\times$) & 2/10 \\
+		$\mathrm{WE}[I_\theta]$ & $7.92\times10^{-6}$ & 0.893 & $1.82\times10^{8}$ & $6.90\times10^{-9}$ ($0.53\times$) & 0/10 \\
+		\multicolumn{6}{l}{\emph{EA spin glass}, target $E/N\le-1.0625$} \\
+		naive & $1.00\times10^{-5}$ & 0.633 & $1.34\times10^{8}$ & $1.86\times10^{-8}$ ($2.38\times$) & 1/10 \\
+		$\mathrm{WE}[m]$ & $1.02\times10^{-5}$ & 1.857 & $3.72\times10^{7}$ & $7.80\times10^{-9}$ ($1.00\times$) & 7/10 \\
+		$\mathrm{WE}[E]$ & $1.65\times10^{-5}$ & 1.115 & $1.61\times10^{8}$ & $5.00\times10^{-9}$ ($0.64\times$) & 2/10 \\
+		$\mathrm{WE}[I_\theta]$ & $1.54\times10^{-5}$ & 1.052 & $1.42\times10^{8}$ & $6.36\times10^{-9}$ ($0.81\times$) & 2/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Learned coordinate: diagnostic and shallow-depth comparison}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Incremental-$R^2$ diagnostic, EA spin glass, $L=16$, matched training budget
+		(MSE $1.0\to0.271$ over 20 epochs).}
+	\label{tab:diagnostic}
+	\begin{tabular}{lr}
+		\toprule
+		Quantity & value \\
+		\midrule
+		Pearson corr$(I_\theta,\,E/N)$ & $-0.614$ \\
+		fraction of $\mathrm{Var}(I_\theta)$ unexplained by $E/N$ & $0.623$ \\
+		$R^2(\text{label}\sim E/N\text{ alone})$ & $0.358$ \\
+		$R^2(\text{label}\sim I_\theta\text{ alone})$ & $0.577$ \\
+		$R^2(\text{label}\sim E/N+I_\theta)$ & $0.608$ \\
+		incremental $R^2$ from $I_\theta$ beyond $E/N$ & $+0.250$ \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $L=16$, one threshold step rarer than Table~\ref{tab:prefix}. Not a
+		trustworthy comparison (see paper text).}
+	\label{tab:beyond2}
+	\begin{tabular}{lrr}
+		\toprule
+		Method & FOM & zero-rep.\ \\
+		\midrule
+		naive & $7.43\times10^{-9}$ & 4/10 \\
+		$\mathrm{WE}[m]$ & $0$ & 10/10 \\
+		$\mathrm{WE}[E]$ & $2.18\times10^{-9}$ & 5/10 \\
+		$\mathrm{WE}[I_\theta]$ & $1.56\times10^{-9}$ & 7/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Milestoning seed sweep and deep-ensemble result}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $L=16$, $T=2.6$, one step beyond the pilot extreme, 10 replicas,
+		milestoning labels, seventeen independent training runs of the identical configuration.
+		Every method observed the event in every replica in every run; naive,
+		$\mathrm{WE}[m]$, and $\mathrm{WE}[E]$ are bit-identical across all runs (deterministic,
+		and $\mathrm{WE}[E]$ does not depend on the trained network). Seed 0 was run twice
+		independently and reproduced bit-for-bit, confirming the network-seeding fix is
+		complete.}
+	\label{tab:milestone}
+	\begin{tabular}{lrrrr}
+		\toprule
+		Method & $\hat\pi$ & rel.\ s.d.\ & FOM & zero-replicas \\
+		\midrule
+		naive & $5.29\times10^{-5}$ & 0.225 & $1.48\times10^{-7}$ & 0/10 \\
+		$\mathrm{WE}[m]$ & $5.55\times10^{-5}$ & 0.201 & $1.17\times10^{-7}$ & 0/10 \\
+		$\mathrm{WE}[E]$ & $4.49\times10^{-5}$ & 0.209 & $4.22\times10^{-8}$ & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, unseeded run 1 & $5.03\times10^{-5}$ & 0.174 &
+		$4.81\times10^{-8}$ ($+14\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, unseeded run 2 & $4.52\times10^{-5}$ & 0.204 &
+		$3.48\times10^{-8}$ ($-17\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 0 (runs 3a/3b) & $5.28\times10^{-5}$ & 0.127 &
+		$8.94\times10^{-8}$ ($+112\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 1 & $5.09\times10^{-5}$ & 0.216 &
+		$3.09\times10^{-8}$ ($-27\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 2 & $5.06\times10^{-5}$ & 0.175 &
+		$4.65\times10^{-8}$ ($+10\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 3 & $4.56\times10^{-5}$ & 0.252 &
+		$2.29\times10^{-8}$ ($-46\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 4 & $4.13\times10^{-5}$ & 0.128 &
+		$8.81\times10^{-8}$ ($+109\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 5 & $5.40\times10^{-5}$ & 0.138 &
+		$7.65\times10^{-8}$ ($+82\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 6 & $4.69\times10^{-5}$ & 0.149 &
+		$6.56\times10^{-8}$ ($+56\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 7 & $4.32\times10^{-5}$ & 0.267 &
+		$2.03\times10^{-8}$ ($-52\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 8 & $4.89\times10^{-5}$ & 0.135 &
+		$7.86\times10^{-8}$ ($+86\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 9 & $5.03\times10^{-5}$ & 0.159 &
+		$5.66\times10^{-8}$ ($+34\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 10 & $4.80\times10^{-5}$ & 0.157 &
+		$5.85\times10^{-8}$ ($+39\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 11 & $4.81\times10^{-5}$ & 0.202 &
+		$3.48\times10^{-8}$ ($-17\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 12 & $5.14\times10^{-5}$ & 0.230 &
+		$2.76\times10^{-8}$ ($-35\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 13 & $4.83\times10^{-5}$ & 0.150 &
+		$6.36\times10^{-8}$ ($+51\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 14 & $4.94\times10^{-5}$ & 0.146 &
+		$6.76\times10^{-8}$ ($+60\%$) & 0/10 \\
+		$\mathrm{WE}[I_\theta]$, seed 15 & $4.53\times10^{-5}$ & 0.232 &
+		$2.66\times10^{-8}$ ($-37\%$) & 0/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $L=16$, one step rarer than Table~\ref{tab:milestone}, milestoning
+		labels, default configuration ($n_{\rm bins}=50$, $R=10$).}
+	\label{tab:milestone2}
+	\begin{tabular}{lrr}
+		\toprule
+		Method & FOM & zero-rep.\ \\
+		\midrule
+		naive & $3.51\times10^{-8}$ & 0/10 \\
+		$\mathrm{WE}[m]$ & $7.73\times10^{-9}$ & 0/10 \\
+		$\mathrm{WE}[E]$ & $9.21\times10^{-9}$ & 0/10 \\
+		$\mathrm{WE}[I_\theta]$ & $8.36\times10^{-9}$ & 0/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Five independent $K{=}5$ deep-ensemble runs, identical configuration to
+		Table~\ref{tab:milestone}. FOM ratio is $\mathrm{WE}[I_\theta]/\mathrm{WE}[E]$ on the
+		MC-sweep cost as originally defined (see paper text for the wall-clock-corrected ratio,
+		which excludes 1 at $0.087\times$).}
+	\label{tab:ensemble}
+	\begin{tabular}{lrrr}
+		\toprule
+		Run & $\mathrm{WE}[I_\theta]$ FOM & rel.\ s.d.\ & ratio vs.\ $\mathrm{WE}[E]$ \\
+		\midrule
+		ensemble, base seed 20 & $1.95\times10^{-8}$ & 0.272 & $0.46\times$ ($-54\%$) \\
+		ensemble, base seed 21 & $2.75\times10^{-8}$ & 0.229 & $0.65\times$ ($-35\%$) \\
+		ensemble, base seed 22 & $3.69\times10^{-8}$ & 0.199 & $0.88\times$ ($-12\%$) \\
+		ensemble, base seed 23 & $3.07\times10^{-8}$ & 0.215 & $0.73\times$ ($-27\%$) \\
+		ensemble, base seed 24 & $3.84\times10^{-8}$ & 0.194 & $0.91\times$ ($-9\%$) \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Kim \& Cai self-consistency head-to-head}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $L=16$, shallowest calibrated target, 10 replicas. Point estimates
+		only; see bootstrapped confidence intervals below.}
+	\label{tab:kimcai}
+	\begin{tabular}{lrrrr}
+		\toprule
+		Method & $\hat\pi$ & rel.\ s.d.\ & FOM & zero-replicas \\
+		\midrule
+		naive & $3.36\times10^{-5}$ & 0.294 & $8.60\times10^{-8}$ & 0/10 \\
+		$\mathrm{WE}[m]$ & $3.94\times10^{-5}$ & 0.553 & $8.81\times10^{-8}$ & 1/10 \\
+		$\mathrm{WE}[E]$ & $3.39\times10^{-5}$ & 0.671 & $1.33\times10^{-8}$ & 0/10 \\
+		$\mathrm{WE}[I_\theta]$ surrogate & $2.92\times10^{-5}$ & 0.904 & $8.62\times10^{-9}$ & 1/10 \\
+		$\mathrm{WE}[I_\theta]$ self-consistent & $4.01\times10^{-5}$ & 0.655 &
+		$1.62\times10^{-8}$ & 0/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Bootstrapped FOM ratios, full scale ($L=16$), shallowest calibrated target, at
+		$R=10$ and after tripling to $R=30$. Ratio $>1$ favors the self-consistency objective.}
+	\label{tab:kimcaiboot}
+	\begin{tabular}{lrrrr}
+		\toprule
+		Comparison & $R$ & FOM ratio (median) & 95\% CI & significant? \\
+		\midrule
+		self-consistent / surrogate & 10 & 1.83 & $[0.49,\,9.23]$ & no \\
+		self-consistent / surrogate & 30 & 1.39 & $[0.65,\,2.95]$ & no \\
+		self-consistent / $\mathrm{WE}[E]$ & 10 & 1.19 & $[0.33,\,4.95]$ & no \\
+		self-consistent / $\mathrm{WE}[E]$ & 30 & 1.07 & $[0.55,\,2.09]$ & no \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Same comparison as Table~\ref{tab:kimcaiboot}, one threshold step deeper
+		(``beyond''\,$=1$ instead of $0$), $R=10$.}
+	\label{tab:kimcaideep}
+	\begin{tabular}{lrrr}
+		\toprule
+		Comparison & FOM ratio (median) & 95\% CI & zero-rep.\ (surr.\ / self-cons.) \\
+		\midrule
+		self-consistent / surrogate & 1.14 & $[0.27,\,4.81]$ & 2/10 / 1/10 \\
+		self-consistent / $\mathrm{WE}[E]$ & 1.33 & $[0.34,\,5.74]$ & --- \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Deep-rare regime}
+
+\begin{table}[h]
+	\centering\small
+	\caption{Naive-only depth calibration, 10 replicas, custom-preset budget. Naive is
+		fully reliable through $\mathrm{beyond}=2$, starts failing at $\mathrm{beyond}=3$,
+		and is completely blind at $\mathrm{beyond}=4$ and beyond.}
+	\label{tab:deeprare}
+	\begin{tabular}{lrrr}
+		\toprule
+		beyond & $\hat\pi$ & rel.\ s.d.\ & zero-replicas \\
+		\midrule
+		1 & $5.29\times10^{-5}$ & 0.23 & 0/10 \\
+		2 & $5.48\times10^{-6}$ & 0.46 & 0/10 \\
+		3 & $7.14\times10^{-7}$ & 1.61 & 7/10 \\
+		4 & $0.0$ & --- & 10/10 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $L=16$, $\mathrm{beyond}=4$, self-consistency objective,
+		three independent training seeds, 30 replicas each. $\mathrm{WE}[E]$/$\mathrm{WE}[m]$/naive
+		do not depend on the trained network and are bit-identical across all three runs.
+		Reliability: pooled $60/90$ ($66.7\%$) hits vs.\ $\mathrm{WE}[E]$'s $12/30$ ($40.0\%$),
+		Fisher exact $p=0.017$ --- the only statistically significant positive result for a
+		learned coordinate in the whole project. FOM ratio (geometric-mean, two-level bootstrap
+		over the three seeds): $1.16\times$, 95\% CI $[0.65,\,2.12]$ --- directionally consistent
+		but not significant.}
+	\label{tab:selfconsistdeep}
+	\begin{tabular}{lrrr}
+		\toprule
+		Method & hits/30 & FOM & ratio vs.\ $\mathrm{WE}[E]$ \\
+		\midrule
+		naive & 1/30 & $2.48\times10^{-10}$\textsuperscript{a} & --- \\
+		$\mathrm{WE}[m]$ & 5/30 & $1.04\times10^{-10}$ & --- \\
+		$\mathrm{WE}[E]$ & 12/30 & $1.69\times10^{-10}$ & 1.00 \\
+		$\mathrm{WE}[I_\theta]$, seed 0 & 19/30 & $2.18\times10^{-10}$ & $1.29\times$ \\
+		$\mathrm{WE}[I_\theta]$, seed 1 & 20/30 & $1.81\times10^{-10}$ & $1.07\times$ \\
+		$\mathrm{WE}[I_\theta]$, seed 2 & 21/30 & $1.77\times10^{-10}$ & $1.04\times$ \\
+		\bottomrule
+	\end{tabular}
+	\\[2pt]
+	{\footnotesize\textsuperscript{a}Not a meaningful FOM: driven by a single hit in 30
+		replicas (rel.\ s.d.\ $=5.5$); reported for completeness only.}
+\end{table}
+
+\section{Lattice-size scaling}
+
+\begin{table}[h]
+	\centering\small
+	\caption{EA spin glass, $\mathrm{beyond}=1$, naive vs.\ the best-performing WE variant at
+		each $L$ (which variant wins changes with $L$; see paper text). $\hat\pi$ for naive shown
+		to indicate how rare the target is at each scale.}
+	\label{tab:lscaling}
+	\begin{tabular}{lrrrr}
+		\toprule
+		$L$ & naive $\hat\pi$ & naive FOM & best WE FOM (method) & ratio \\
+		\midrule
+		8 & $1.79\times10^{-4}$ & $2.00\times10^{-6}$ & $1.04\times10^{-6}$ ($\mathrm{WE}[E]$) & $1.9\times$ \\
+		16 & $5.18\times10^{-5}$ & $1.72\times10^{-7}$ & $4.83\times10^{-8}$ ($\mathrm{WE}[m]$) & $3.5\times$ \\
+		24 & $1.30\times10^{-5}$ & $2.79\times10^{-8}$ & $8.06\times10^{-9}$ ($\mathrm{WE}[E]$) & $3.5\times$ \\
+		32 & $4.17\times10^{-6}$ & $6.11\times10^{-9}$ & $1.69\times10^{-9}$ ($\mathrm{WE}[I_\theta]$) & $3.6\times$ \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{FW-CADIS global variance reduction}
+
+\begin{table}[h]
+	\centering\small
+	\caption{FW-CADIS across every configuration tested, laptop scale through the ferromagnet
+		control. Flatness marked $^*$ is computed only over thresholds actually observed, not
+		comparable to unmarked rows in the same group. Dashes mark columns that do not apply to
+		that group (coverage was 6/6 throughout past the laptop scale; a bootstrap CI was only
+		computed for the final two configurations).}
+	\label{tab:fwall}
+	\begin{tabular}{lrrrr}
+		\toprule
+		Allocation & coverage & flatness (max/min) & 95\% CI & cost \\
+		\midrule
+		\multicolumn{5}{l}{\emph{Laptop scale}, $L=12$, $R=6$, 6 thresholds} \\
+		uniform ($\alpha=0$) & 6/6 & 283.8 & --- & $2.01\times10^{7}$ \\
+		$\alpha=0.25$ & 6/6 & 245.2 & --- & $7.87\times10^{6}$ \\
+		$\alpha=0.5$ & 5/6 & $65.8^*$ & --- & $3.41\times10^{6}$ \\
+		$\alpha=0.75$ & 5/6 & $63.5^*$ & --- & $3.29\times10^{6}$ \\
+		$\alpha=1.0$ & 5/6 & $84.8^*$ & --- & $3.24\times10^{6}$ \\
+		naive (reference) & 6/6 & 463.5 & --- & $1.61\times10^{7}$ \\
+		\multicolumn{5}{l}{\emph{Full scale}, $L=16$, $R=30$, 6 thresholds (every allocation reaches 6/6 coverage)} \\
+		uniform ($\alpha=0$) & 6/6 & 298.0 & --- & $1.55\times10^{8}$ \\
+		$\alpha=0.25$ & 6/6 & 377.8 & --- & $7.89\times10^{7}$ \\
+		$\alpha=0.5$ & 6/6 & 323.9 & --- & $2.35\times10^{7}$ \\
+		$\alpha=0.75$ & 6/6 & 342.4 & --- & $1.98\times10^{7}$ \\
+		$\alpha=1.0$ & 6/6 & 385.5 & --- & $1.94\times10^{7}$ ($\sim\!8\times$ cheaper) \\
+		naive (reference) & 6/6 & 445.1 & --- & $1.34\times10^{8}$ \\
+		\multicolumn{5}{l}{\emph{Final EA spin-glass configuration}, $L=16$, $R=90$, shallowest calibrated family} \\
+		Uniform ($\alpha=0$) & --- & 276.1 & $[224,\,344]$ & $1.59\times10^{8}$ \\
+		FW-CADIS ($\alpha=1$) & --- & 297.3 & $[234,\,388]$ & $1.99\times10^{7}$ ($\sim\!8\times$ cheaper) \\
+		\multicolumn{5}{l}{\emph{Ferromagnet control}, $L=16$, $R=30$, shallowest calibrated family} \\
+		Uniform ($\alpha=0$) & --- & 100.9 & $[65.8,\,160.3]$ & $1.96\times10^{8}$ \\
+		FW-CADIS ($\alpha=1$) & --- & 287.3 & $[194.7,\,414.8]$ & $3.09\times10^{7}$ \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\end{document}

@@ -1010,15 +1010,25 @@ def main():
         ("WE[I_theta]", net_coord, None),      # learned range unknown -> adaptive
     ]
     rows = []
+    # wall_time per method, alongside the existing MC-sweep-only 'cost' --
+    # mirrors run_milestone.py's fix (2026-08-08, see HANDOFF.md/
+    # HANDOFF_wallclock_correction.md). 'cost' is blind to network inference;
+    # every WE[I_theta] result from this script predating this field was
+    # reconstructed post-hoc from log timestamps (wallclock_kimcai_deeprare.py)
+    # for exactly that reason -- recording it directly here makes that
+    # reconstruction unnecessary for future runs.
+    stage_start = time.time()
     for name, coord, crange in methods:
         kind = "naive" if name == "naive" else "we"
         est, cost = run_replicas(kind, static, coord, cfg, R,
                                  jobs=a.jobs,
                                  base_seed=1000 + 97 * len(rows), crange=crange)
+        wall_time = time.time() - stage_start
+        stage_start = time.time()
         f, mean, relsd = fom_from(est, cost)
         rows.append(dict(method=name, mean=float(mean), rel_sd=float(relsd),
                          cost=cost, fom=float(f), zeros=int((est == 0).sum()),
-                         est=est.tolist()))
+                         est=est.tolist(), wall_time=wall_time))
         print(f"   {name:12s} pi={mean:.3e}  rel.sd={relsd:.3f}  "
               f"cost={cost:.2e}  FOM={f:.3e}  zero-replicas={rows[-1]['zeros']}/{R}"
               f"  [{time.time()-t0:.0f}s]")

@@ -1,0 +1,13 @@
+WE budget: n_bins=22  n_per_bin=10  we_iter=1000  we_burn=200  tau=4
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=16  T=2.6 (Tc=2.269)  preset=full  replicas=30  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = -1.0469, bulk mean = -0.7297
+   ladder spans E/N -0.5675 -> -1.0469
+   calibrated target (0 step(s) beyond pilot extreme): E/N <= -1.0469
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+[1/2] learning I_theta(s) (objective=selfconsistent) ...
+   loaded cached net from net_seed0_selfconsistent.pt -- skipped training [1s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
