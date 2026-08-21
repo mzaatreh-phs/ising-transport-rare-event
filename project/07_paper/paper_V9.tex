@@ -596,6 +596,19 @@ more precise at the deepest resolved bin, where direct-sampling variance has gro
 The exact gates of \S\ref{sec:validation}, rather than this performance comparison, establish
 the correctness of the WE implementation.
 
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=\linewidth]{figs/fig_tail.pdf}
+\caption{$L=20$ Ising magnetization tail at matched spin-update cost, $R=20$ independent
+replicas per method. (a) Rate function $-\frac{1}{N}\ln P(|m|)$; the shaded band is $\pm1$
+standard deviation over the $20$ WE replicas. Both methods resolve the tail to the identical
+deepest bin, $|m|=0.932$. (b) Relative error of $\hat P(|m|)$ across replicas on a log scale:
+naive sampling stays lower through most of the tail, then degrades sharply once it approaches
+its support boundary, whereas WE degrades more gradually and holds the lower relative error
+only at the single deepest bin.}
+\label{fig:tail}
+\end{figure}
+
 \subsection{Calibration of the deep-rare EA regime}\label{sec:depth}
 Having established the rarity-dependent behavior of WE in the ferromagnetic benchmark, the
 analysis next moves to the frustrated EA model, where the principal learned-coordinate test is

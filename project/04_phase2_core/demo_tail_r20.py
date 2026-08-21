@@ -88,7 +88,7 @@ def main():
                "naive sampling\nfloor", color=RED, ha="right", fontsize=8)
     ax[0].set_xlabel(r"$|m|$")
     ax[0].set_ylabel(r"rate function $-\frac{1}{N}\ln P(|m|)$")
-    ax[0].set_title(f"(a) WE reaches beyond naive's hard support\nfloor "
+    ax[0].set_title(f"(a) WE and naive resolve the tail to matched depth\n"
                      f"(shaded: $\\pm1$ s.d.\\ over {R} replicas)")
     ax[0].legend(frameon=False, fontsize=9); ax[0].grid(alpha=0.3)
 
