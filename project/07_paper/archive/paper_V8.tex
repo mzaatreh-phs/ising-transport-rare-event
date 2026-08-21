@@ -1,0 +1,1053 @@
+%% ============================================================================
+%% Elsevier CAS single-column manuscript
+%% Transport-inspired rare-event sampling in spin systems
+%%
+%% Build: pdflatex x2 (no external .bib; thebibliography is inline)
+%% Requires: cas-sc.cls (Elsevier CAS bundle)
+%% ============================================================================
+
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{enumitem}
+
+\setlist{itemsep=2pt,topsep=3pt}
+\newcommand{\WE}{\mathrm{WE}}
+\newcommand{\FOM}{\mathrm{FOM}}
+% Suppress the CAS template's empty ORCID footnote; replace this with an author ORCID if available.
+\RenewDocumentCommand{\printorcid}{}{}
+
+\begin{document}
+\restylefloat{figure}
+\restylefloat{table}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+
+\shorttitle{Transport-inspired rare-event sampling in spin systems}
+\shortauthors{M.Y. Alzaatreh}
+
+\title[mode=title]{Transport-Inspired Rare-Event Sampling in Spin Systems: Learned
+Importance Improves Deep-Target Reliability}
+
+\author{M.Y. Alzaatreh}
+\cormark[1]
+\ead{mzaatreh@fbsu.edu.sa}
+\credit{Conceptualization, Methodology, Software, Formal analysis, Investigation,
+Visualization, Writing -- original draft, Writing -- review \& editing}
+
+\affiliation{organization={Natural Sciences Unit, Fahad Bin Sultan University},
+            city={Tabuk},
+            country={Saudi Arabia}}
+
+\cortext[1]{Corresponding author}
+
+% ---- Abstract --------------------------------------------------------------
+\begin{abstract}
+Rare-event sampling requires computational effort to be concentrated in configurations that
+disproportionately determine a target probability. Radiation transport addresses this through
+adjoint importance functions and weight-window population control, and this work transfers
+that toolkit to rare-event sampling in lattice spin systems, using the shared
+backward-conditioning structure of the transport adjoint and the transition-path committor. A
+solvable birth--death process reproduces the zero-variance limit of exact importance, and
+enumeration of a $4\times4$ lattice confirms that weight-conserving Weighted Ensemble (WE)
+resampling is unbiased for any binning coordinate. At matched spin-update cost and full
+replication ($R=20$), WE and naive sampling resolve the $L=20$ Ising magnetization tail to
+comparable depth, with WE holding a modest, roughly two-fold precision advantage at the single
+deepest bin either method reaches. For the
+frustrated Edwards--Anderson spin glass, a self-consistency-trained neural coordinate acting on
+the full spin configuration bins the weighted population. Across six independent disorder
+realizations with one trained network each, the deepest calibrated target is reached in $121$
+of $180$ replicas ($67.2\%$) against $95/180$ ($52.8\%$) for the energy-binned coordinate.
+A disorder-stratified Cochran--Mantel--Haenszel analysis gives a common odds ratio of $2.33$
+($95\%$ CI $[1.40,3.88]$, $p=0.0011$); the same reliability advantage also appears within a
+single realization across three independently trained networks compared against a matched-size
+baseline ($66.7\%$ versus $48.9\%$, Fisher exact $p=0.023$). That improvement is one of
+reliability rather than wall-clock efficiency. Repeated neural inference costs four to five
+times the wall-clock time of the energy coordinate, so the directly measured figure of merit
+sits at roughly one-third of parity ($0.33$, $95\%$ CI $[0.19,0.58]$). These results support
+the transfer of the tested transport-inspired framework and show that the reliability advantage
+extends beyond a single quenched-disorder realization. At the tested scale, neural inference
+overhead is the dominant measured barrier to wall-clock competitiveness.
+\end{abstract}
+
+% ---- Highlights ------------------------------------------------------------
+\begin{highlights}
+\item Adjoint importance and the rare-event committor share the same backward-conditioning
+structure and coincide for the unit-response absorbing-target problem studied here.
+\item Exact tests validate both the zero-variance importance limit and unbiased WE population
+control.
+\item At matched update cost and full replication ($R=20$), WE holds an approximately
+two-fold precision advantage over naive sampling at the deepest resolved Ising-tail bin,
+though not uniformly across the tail.
+\item Learned importance improves deep-event discovery across six independent
+Edwards--Anderson disorder realizations ($67.2\%$ versus $52.8\%$; stratified odds ratio $2.33$,
+$p=0.0011$).
+\item The reliability improvement does not yet translate into wall-clock efficiency
+($0.33$, $95\%$ CI $[0.19,0.58]$).
+\end{highlights}
+
+% ---- Keywords --------------------------------------------------------------
+\begin{keywords}
+Rare-event sampling \sep committor \sep adjoint importance \sep Weighted Ensemble \sep
+variance reduction \sep Ising model \sep spin glass \sep neural importance
+\end{keywords}
+
+\maketitle
+
+% ============================================================================
+\section{Introduction}\label{sec:intro}
+
+A rare event is one that direct simulation almost never observes: the nucleation of a new
+phase, a protein crossing between conformational basins \citep{bolhuis2002}, or a detector
+registering a particle that has penetrated many mean free paths of shielding
+\citep{kahn1951,kalos2008}. In each case the probability
+of the event is itself the quantity of scientific interest, and it is exactly that quantity
+which unbiased dynamics represents worst. If an event has equilibrium or first-passage
+probability $p\ll1$, the relative error of a direct Bernoulli estimator formed from $N$
+effectively independent samples follows the elementary result \citep{kahn1951,kalos2008}
+\begin{equation}
+\varepsilon_{\rm rel}=\sqrt{\frac{1-p}{Np}}\;\simeq\;(Np)^{-1/2},\qquad p\ll1,
+\label{eq:bernoulli}
+\end{equation}
+so the sample count required for fixed relative precision grows as $1/p$ and each additional
+decade of rarity costs an order of magnitude in computation. The failure is structural rather
+than incidental, and every established remedy responds to it the same way: not with more
+samples, but with better-placed ones. This elementary scaling is the origin of a broad family
+of rare-event techniques, including importance sampling,
+splitting, transition-path sampling, Forward Flux Sampling (FFS), Adaptive Multilevel
+Splitting (AMS), and Weighted Ensemble (WE) methods \citep{kahn1951,kalos2008,huber1996,
+zuckerman2017,allen2009,cerou2007,bolhuis2002}. What each of them requires in practice is a
+rule for deciding which samples are the better-placed ones.
+
+Two mature traditions answer that question using closely related mathematical objects. In
+transition-path theory, the committor $h(s)$ is the probability that a trajectory initiated
+at configuration $s$ reaches a target set before a competing boundary, and it provides an
+optimal reaction coordinate for that event \citep{e2006,metzner2009,vandeneijnden2010}. In
+classical particle transport, an adjoint solution assigns an importance to a phase-space
+point according to its expected contribution to a detector response; this importance can be
+used to bias sources, alter transition probabilities, and construct weight windows
+\citep{lewins1965,spanier1969,bell1970,wagner1998,haghighat2003}. The formal connection to
+the Doob $h$-transform and conditioned Markov processes is well known
+\citep{doob1984,touchette2009,chetrite2015}. The contribution of the present work is not to
+claim a new identity between these objects, but to carry out a systematic transfer and
+validation of the transport variance-reduction viewpoint in spin-system rare-event sampling,
+together with a controlled test of a learned configuration-space coordinate built on this
+viewpoint.
+
+The transport perspective is attractive because it separates the ideal importance function
+from the population-control mechanism used when that importance is only approximate. Exact
+adjoint biasing can in principle produce zero-variance estimators, while weight windows use
+splitting and roulette to keep statistical weight near a prescribed range. This distinction
+underlies CADIS and related hybrid deterministic--Monte Carlo variance-reduction methods
+\citep{wagner1998,haghighat2003,wagnerfw2014}. In the present setting, the same logic
+motivates using a committor-like quantity to organize a weighted population while retaining
+the original spin dynamics.
+
+Rare-event population methods have a parallel history outside transport. WE was introduced
+for biomolecular transition sampling by Huber and Kim, shown to be statistically exact for
+broad classes of dynamics and binning procedures, and made practical for complex molecular
+systems by steady-state formulations and mature software
+\citep{huber1996,zhang2010,bhatt2010,russo2022}; FFS and AMS address related first-passage
+problems through interfaces or adaptive levels \citep{allen2009,valeriani2007,cerou2007},
+while transition-path sampling works with reactive-path ensembles and can avoid prescribing a
+one-dimensional coordinate at all \citep{dellago1998,bolhuis2002}. Machine learning
+meanwhile offers several routes to the high-dimensional objects these methods need: flow-based
+and autoregressive samplers for equilibrium distributions
+\citep{wu2019,noe2019,nicoli2020,gabrie2022}, neural approximations of committor and
+Feynman--Kac observables from short trajectories \citep{khoo2019,strahan2023}, learned bias
+potentials and importance functions \citep{hua2024,kimcai2026}, and neural Doob dynamics for
+large deviations \citep{zhao2025}. Together these motivate the central practical question of
+this paper: when the rare event occurs in a high-dimensional spin configuration space, how
+much is gained by replacing a hand-designed coordinate with a learned, committor-inspired one,
+measured against a strong physical baseline and with inference cost charged to the result?
+
+The study is organized as a validation ladder rather than a single benchmark, built around
+three questions. Is the transport/committor correspondence mathematically valid in the
+formulated first-passage setting? How does weight-conserving WE alter sampling precision
+relative to direct Monte Carlo as the Ising tail becomes progressively rarer? And does a learned
+full-configuration coordinate improve deep-event access over a strong physical energy
+coordinate, reproducibly across independent instances of the problem rather than for one
+particular realization? A solvable
+one-dimensional birth--death chain first verifies the zero-variance limit of exact importance.
+Exact enumeration of a $4\times4$ Ising lattice then verifies unbiased WE resampling. A larger
+$L=20$ Ising calculation tests the rarity-dependent precision trade-off between WE and direct
+sampling at matched spin-update cost, and finally the Edwards--Anderson (EA) spin glass provides a
+frustrated landscape in which magnetization is a poor coordinate and the low-energy target is
+a more demanding test for learned configuration-space importance
+\citep{ising1925,onsager1944,edwards1975,binder1986}. Throughout, \emph{reliability} (whether
+a method reaches the event at all, reproducibly) is distinguished from \emph{efficiency}
+(variance reduction per unit of actual computational cost). That distinction matters most for
+neural coordinates, since inference overhead is not represented by a spin-update count.
+
+The main findings are positive but bounded. WE is unbiased, validated against exact
+references, and holds a modest precision advantage over naive sampling at the deepest
+resolved point of the Ising tail, though not uniformly across it. In the EA model, a
+self-consistency-trained neural coordinate significantly improves deep-event discovery over
+the physical energy coordinate, an advantage reproduced both across independently trained
+networks on one disorder realization and across six independent disorder realizations. That
+improvement is a reliability result, though: once inference is included in the cost, the same
+coordinate does not improve the figure of merit. Together, these results identify a
+transferable theoretical core, a validated route for using learned importance information
+inside an unbiased weighted-population sampler, while identifying neural inference overhead as
+the dominant measured barrier to wall-clock competitiveness at the tested scale.
+
+\FloatBarrier
+
+% ============================================================================
+\section{Theory and Methods}\label{sec:methods}
+
+\subsection{Adjoint importance, committors, and zero-variance sampling}\label{sec:adjoint}
+Let $K(s,s')$ be the transition kernel of a Markov chain and let $B$ denote a target set.
+For a first-passage event, the forward committor is the probability of reaching $B$ before
+the competing set $A$ \citep{e2006,metzner2009}:
+\begin{equation}
+h(s)=\Pr_{s}\!\left(\tau_B<\tau_A\right).
+\label{eq:committor}
+\end{equation}
+For a discrete Markov process, this committor satisfies the backward (harmonic) equation in
+the interior of the state space, a standard result of transition-path theory for Markov jump
+processes \citep{e2006,metzner2009,vandeneijnden2010}:
+\begin{equation}
+h(s)=\sum_{s'}K(s,s')\,h(s'),\qquad s\notin A\cup B,
+\label{eq:harmonic}
+\end{equation}
+with boundary values $h=0$ on $A$ and $h=1$ on $B$. Conditioning the dynamics with a
+positive harmonic function leads to the Doob $h$-transform, introduced in classical potential
+theory \citep{doob1984} and used in this form throughout the large-deviation and
+conditioned-process literature \citep{touchette2009,chetrite2015}:
+\begin{equation}
+K_h(s,s')=K(s,s')\,\frac{h(s')}{h(s)},
+\label{eq:doob}
+\end{equation}
+where defined. This is the Markov-chain counterpart of adjoint-based importance biasing in
+transport. With the exact $h$, successful paths acquire identical total statistical weight,
+producing the familiar zero-variance ideal.
+
+The relationship between the two importance functions should be stated precisely, since it is
+weaker than an identity. The committor of Eq.~\eqref{eq:committor} is a probability: the chance
+of reaching $B$ before $A$ from $s$, bounded in $[0,1]$ and defined only once a competing
+boundary is specified. The transport adjoint, by contrast, is an expected contribution to a
+specified detector response; it carries the units of that response and is unbounded in
+general. What the two share is structure rather than definition. Both are solutions of a
+backward equation generated by the same transition operator, both express the value of a state
+with respect to a terminal objective, and both play the same role when used to tilt or to bin.
+They coincide as functions in the particular case of an absorbing target with unit detector
+cross-section and no multiplication, which is the case constructed here, but they are not
+universally the same object and this paper does not claim they are. What transfers is the
+backward-conditioning structure and the machinery built on it, not an equivalence of the two
+quantities in general.
+
+This correspondence motivates two distinct uses of approximate importance. The first changes
+transition probabilities directly, which can be fragile when $h$ is inaccurate. The second
+retains the original dynamics but uses population splitting and merging to control statistical
+weight. The second strategy is adopted here using an unbiased, weight-conserving WE resampling
+scheme, so an imperfect binning coordinate can alter variance and sampling allocation without
+altering the estimator expectation \citep{zhang2010}.
+
+The exact equivalence and zero-variance construction above apply to the formulated first-passage
+problem. In the equilibrium tail calculations below, the committor-inspired quantity is not
+used to claim an exact zero-variance transformation of the stationary distribution; it is used
+only as a progress coordinate for unbiased WE resampling. The first-passage theory therefore
+supplies the importance principle, while the spin-system calculations test its utility as a
+population-allocation coordinate.
+
+\subsection{Zero-variance path weighting}\label{sec:zerovar}
+The zero-variance statement can be seen directly at the path level. Consider a trajectory
+$\omega=(s_0,s_1,\dots,s_\tau)$ generated under the Doob-transformed kernel until it reaches
+either $A$ or $B$. Substituting the Doob transform of Eq.~\eqref{eq:doob} into the path
+likelihood ratio gives the telescoping identity below, derived here for the discrete
+first-passage setting from Eqs.~\eqref{eq:harmonic}--\eqref{eq:doob}; it is the discrete-state
+counterpart of the classical zero-variance principle of transport importance sampling
+\citep{lewins1965,spanier1969,haghighat2003} and of the conditioned-process construction of
+Doob \citep{doob1984} and Chetrite and Touchette \citep{chetrite2015}:
+\begin{equation}
+\prod_{t=0}^{\tau-1}\frac{K(s_t,s_{t+1})}{K_h(s_t,s_{t+1})}
+=\prod_{t=0}^{\tau-1}\frac{h(s_t)}{h(s_{t+1})}
+=\frac{h(s_0)}{h(s_\tau)} .
+\label{eq:telescope}
+\end{equation}
+On a successful path ending in $B$, $h(s_\tau)=1$, so every successful history contributes
+exactly $h(s_0)$.
+
+Fix an initial state $s_0$ with $h(s_0)>0$ and let the target quantity be the first-passage
+probability $\pi=h(s_0)=\Pr_{s_0}(\tau_B<\tau_A)$. Generate $M$ independent trajectories under
+$K_h$ and assign each the likelihood-ratio weight of Eq.~\eqref{eq:telescope}, which gives
+the following estimator, derived here:
+\begin{equation}
+\hat\pi=\frac1M\sum_{m=1}^{M}
+\left[\prod_{t=0}^{\tau_m-1}\frac{K(s_t^{(m)},s_{t+1}^{(m)})}{K_h(s_t^{(m)},s_{t+1}^{(m)})}\right]
+\mathbf 1_B\!\left(s_{\tau_m}^{(m)}\right).
+\label{eq:zvest}
+\end{equation}
+Here $\mathbf 1_B(\cdot)$ denotes the indicator function of the target set $B$, equal to $1$ if
+its argument lies in $B$ and $0$ otherwise.
+States with $h=0$ receive zero transition probability, so the transformed chain never enters
+$A$ and every trajectory terminates in $B$; on each such trajectory the weight telescopes to
+$h(s_0)$. Every term of the sum therefore equals $h(s_0)$, so $\hat\pi=\pi$ identically and
+$\mathrm{Var}(\hat\pi)=0$ for any $M\ge1$. This holds for the exact $h$; it degrades
+continuously, and in general non-uniformly, when $h$ is replaced by an approximation. This is
+the property verified numerically in \S\ref{sec:bd}.
+
+For an approximate importance function $\tilde h$, the exact telescoping property is no
+longer available. The present implementation separates importance representation from
+dynamical biasing instead: the physical Metropolis kernel is retained, while the learned or
+physical progress coordinate is used only to organize population splitting and merging. This
+design lets approximate importance information guide computational effort while weight
+conservation preserves the target measure.
+
+Table~\ref{tab:map} summarizes the operational correspondence used throughout the paper. The
+mapping is not intended to imply that all transport constructs carry over unchanged; source
+biasing, for example, has no literal analogue when the equilibrium spin distribution is fixed
+and the goal is to sample a stationary tail. The useful transfer is structural: an
+adjoint-like scalar identifies configurations that matter to the response, and a
+weight-management mechanism concentrates trajectory population in those configurations.
+
+\begin{table}[H]
+\centering\small
+\caption{Transport concepts and their rare-event spin-system counterparts used in this work.}
+\label{tab:map}
+\begin{tabular}{p{0.26\textwidth}p{0.28\textwidth}p{0.34\textwidth}}
+\toprule
+Radiation-transport concept & Markov/spin counterpart & Role in this study \\
+\midrule
+Adjoint importance & Committor / event-conditioned value function & Defines ideal progress
+toward a rare target \\
+Zero-variance importance bias & Doob $h$-transform / conditioned dynamics & Verified in the
+solvable first-passage demonstration \\
+CADIS / weight-window construction & Importance-guided population allocation & Motivates the
+use of an importance coordinate to organize the weighted population \\
+Weight windows & Weighted splitting and merging & Implemented through unbiased WE resampling
+with conserved statistical weight \\
+Detector response & Rare-event indicator or threshold probability & Magnetization-tail or
+low-energy probability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Spin models and rare-event targets}\label{sec:models}
+For the nearest-neighbor ferromagnetic Ising model, the Hamiltonian is that introduced by
+Ising \citep{ising1925} and solved exactly in two dimensions by Onsager \citep{onsager1944},
+\begin{equation}
+H(\mathbf s)=-J\sum_{\langle ij\rangle}s_is_j,\qquad s_i\in\{-1,+1\},
+\label{eq:ising}
+\end{equation}
+with periodic boundaries and $J=1$. The principal rare observable is the absolute
+magnetization $|m|$. For the spin glass, the corresponding random-bond Hamiltonian is that of
+Edwards and Anderson \citep{edwards1975}, in the $\pm J$ form reviewed by Binder and Young
+\citep{binder1986},
+\begin{equation}
+H(\mathbf s)=-\sum_{\langle ij\rangle}J_{ij}s_is_j,\qquad J_{ij}\in\{-1,+1\},
+\label{eq:ea}
+\end{equation}
+with one fixed disorder realization per comparison (six independent realizations are
+compared in \S\ref{sec:disordergen}). Quenched disorder and frustration make the low-energy
+states disordered, so $m\approx0$ irrespective of energy and magnetization is not an adequate
+progress coordinate; low energy is used as the rare-event target instead. Production sampling
+uses checkerboard Metropolis sweeps \citep{metropolis1953} at $T=2.6$ unless stated otherwise.
+The neural self-consistency objective uses a separate elementary single-spin Metropolis kernel,
+defined in \S\ref{sec:neural}, so that every one-spin neighbor can be enumerated exactly.
+
+\subsection{Weighted Ensemble estimator and resampling}\label{sec:we}
+WE propagates a weighted population under the original, unbiased Metropolis dynamics for a
+resampling interval $\tau$. After propagation, walkers are partitioned into bins defined by a
+coordinate $q(s)$. If the total statistical weight in bin $b$ is $W_b$, resampling
+redistributes that same $W_b$ among the target number of walkers in the bin. Splitting creates
+additional trajectories with reduced individual weights this way, while merging removes
+redundant trajectories without changing total weight. The split/merge rule used here is an unbiased, weight-conserving WE resampling scheme
+\citep{zhang2010}. Consequently, the coordinate controls where sampling effort is placed and can
+change estimator variance, while the expectation of the target estimator is preserved.
+
+For a target set $B$, WE estimates the target probability from the total statistical weight
+carried by walkers in $B$. The estimator takes the weight-conserving form established for WE
+by Huber and Kim \citep{huber1996}, proved statistically exact for broad classes of dynamics
+and binning procedures by Zhang et al.\ \citep{zhang2010}, and used in the steady-state and
+review formulations of Bhatt et al.\ \citep{bhatt2010} and Zuckerman and Chong
+\citep{zuckerman2017}:
+\begin{equation}
+\hat\pi_t=\frac{\sum_i w_i^{(t)}\,\mathbf 1_B\!\left(s_i^{(t)}\right)}{\sum_i w_i^{(t)}},
+\label{eq:weest}
+\end{equation}
+Here $i$ indexes the walkers in the population at resampling cycle $t$, $w_i^{(t)}$ and
+$s_i^{(t)}$ are the statistical weight and state of walker $i$, and $\mathbf 1_B(\cdot)$ is the
+same indicator function of the target set $B$ used in Eq.~\eqref{eq:zvest}.
+The reported estimate is averaged over post-burn-in resampling cycles. Three coordinates
+are compared: absolute magnetization $|m|$, energy per spin $E/N$, and a learned scalar
+coordinate $I_\theta(s)$. Magnetization is deliberately retained as a mismatched baseline for
+the EA spin glass, whereas energy is a natural physical baseline for the low-energy target.
+
+A fixed rare-event threshold can be either trivial or physically unreachable when lattice
+size, temperature, or disorder changes. The computational protocol uses a short pilot
+simulation instead, to locate the most extreme value reached under ordinary dynamics, and then
+places the production threshold beyond that pilot extreme by a small number of discrete
+lattice steps (spacing $2/L^2$ for magnetization, $4/L^2$ for EA energy per spin). The integer
+``beyond'' records how many such steps the target is displaced past the pilot extreme; it
+provides an operational depth scale, without claiming that equal values of ``beyond''
+correspond to identical probabilities across different system sizes or disorder realizations.
+The resampling interval is treated as a physical parameter rather than a bookkeeping choice.
+Independent diagnostics in the EA model show rapid relaxation of deep configurations, so
+shorter resampling intervals penetrate the deep ladder more effectively at comparable cost;
+the production deep-rare calculation uses $\tau=2$ for this reason.
+
+\subsection{Neural importance coordinate}\label{sec:neural}
+The learned coordinate is a compact periodic convolutional network acting on the full spin
+configuration.  For a configuration $s$, the raw network output is denoted
+$\ell_\theta(s)=\log I_\theta(s)$.  The production architecture applies circular padding,
+a $3\times3$ convolution from one input channel to $24$ channels followed by ReLU, a second
+circularly padded $3\times3$ convolution from $24$ to $24$ channels followed by ReLU, and then
+global spatial mean and maximum pooling.  The resulting $48$ features are concatenated and
+mapped by a linear layer to the single unconstrained scalar $\ell_\theta(s)$.  No sigmoid,
+exponentiation, clipping, normalization, or calibration is applied to that output before it is
+used for binning; the label $\WE[I_\theta]$ is retained below as shorthand for WE binned on the
+raw log-importance coordinate $\ell_\theta$.  The architecture is intentionally small: the
+question is whether a full-configuration coordinate can encode useful progress information
+that is absent from a scalar physical observable, not whether a large neural model can fit the
+training set.
+
+The training objective is a self-consistency construction motivated by the harmonic backward
+equation and related to the label-free importance-learning strategy of Kim and Cai
+\citep{kimcai2026}, adapted here to a single low-energy target and a bulk reference condition.
+This direction also sits within a broader neural-committor literature that includes direct
+variational approximation, semigroup and Feynman--Kac formulations, active importance
+sampling, and self-consistent committor-enhanced sampling
+\citep{khoo2019,li2022,rotskoff2022,strahan2023,kang2024,trizio2025}.
+For training only, an elementary one-spin Metropolis proposal kernel is used so that all
+$N=L^2$ neighbors can be evaluated.  If $s^{(n)}$ denotes the state obtained by flipping site
+$n$, the kernel used in the loss is the standard Metropolis rule \citep{metropolis1953},
+\begin{equation}
+K_1\!\left(s,s^{(n)}\right)=\frac{1}{N}\min\!\left\{1,
+\exp\!\left(-\frac{\Delta E_n}{T}\right)\right\},\qquad
+K_1(s,s)=1-\sum_{n=1}^{N}K_1\!\left(s,s^{(n)}\right).
+\label{eq:singleflip}
+\end{equation}
+For the $L=16$ production calculations, all $256$ one-spin neighbors are enumerated.  If a
+neighbor lies in the target set, its boundary value is imposed exactly as
+$\ell_\theta(s^{(n)})=0$, corresponding to $I_\theta=1$.  For all other neighbors the network
+output is used.  The harmonic update is evaluated in log space as
+\begin{equation}
+\log (K_1 I_\theta)(s)=
+\log\!\left[
+K_1(s,s)e^{\ell_\theta(s)}+
+\sum_{n=1}^{N}K_1\!\left(s,s^{(n)}\right)
+ e^{\widetilde\ell_\theta(s^{(n)})}
+\right],
+\label{eq:logki}
+\end{equation}
+where $\widetilde\ell_\theta=0$ for target neighbors and equals the network output otherwise.
+The implementation evaluates Eq.~\eqref{eq:logki} with a log-sum-exp operation for numerical
+stability.
+
+The target condition alone does not remove the constant solution of the harmonic equation: a
+constant $I_\theta$ satisfies $K_1 I_\theta=I_\theta$.  A second, bulk-reference anchor is
+therefore imposed to make the learned coordinate non-degenerate.  To avoid conflict with the
+first-passage sets $A$ and $B$ used in \S\ref{sec:adjoint}, let $\mathcal T$ denote target
+training states, $\mathcal R$ the bulk-reference states, and $\mathcal Q$ all non-target
+training states.  The exact production loss, specified here directly from the implementation,
+is
+\begin{equation}
+\mathcal L=\mathcal L_{\rm SC}+\mathcal L_{\mathcal T}+\mathcal L_{\mathcal R},
+\label{eq:nloss}
+\end{equation}
+with
+\begin{align}
+\mathcal L_{\rm SC}
+ &=\frac{1}{|\mathcal Q|}\sum_{s\in\mathcal Q}
+ \left[\log(K_1I_\theta)(s)-\ell_\theta(s)\right]^2,\nonumber\\
+\mathcal L_{\mathcal T}
+ &=\frac{1}{|\mathcal T|}\sum_{s\in\mathcal T}\ell_\theta(s)^2,\nonumber\\
+\mathcal L_{\mathcal R}
+ &=\frac{1}{|\mathcal R|}\sum_{s\in\mathcal R}
+ \left[\ell_\theta(s)+6\right]^2.
+\label{eq:nlossparts}
+\end{align}
+All three coefficients are exactly unity; no additional regularizer or weight-decay term is
+used.  If a minibatch contains no target or no bulk-reference state, the corresponding boundary
+term is omitted for that minibatch.  The bulk anchor is thus
+$\ell_{\mathcal R}=-6$ ($I_{\mathcal R}=e^{-6}\simeq2.48\times10^{-3}$).  Its numerical value
+sets a reference scale and breaks the constant-solution degeneracy; it is not asserted to be an
+exact committor boundary value.
+
+Training configurations for the six-disorder production study are collected with a separate
+WE-style coverage procedure driven by the oriented physical progress coordinate $-E/N$.
+The collector starts from $80\times40=3200$ configurations, performs one checkerboard
+Metropolis sweep per collection iteration for $3000$ iterations, partitions the observed
+progress range into $12$ adaptive bins, equalizes occupancy across occupied bins, and retains a
+population snapshot every third iteration.  A boundary anchor is either already in the target
+or one single-spin flip away from it.  If the first collection contains no such anchor, one
+retry uses $4500$ iterations and $6400$ initial configurations.  The final training subset
+contains at most $n_{\rm train}=2500$ states.  Boundary-adjacent states are capped at
+$0.70n_{\rm train}=1750$, ensuring that non-boundary states remain available for the second
+boundary condition.  For the EA model, bulk-reference states are selected on the bulk side of
+the pilot energy ladder; equivalently, they satisfy $E/N\ge e_{\rm bulk}$, where
+$e_{\rm bulk}$ is the pilot mean energy per spin plus two pilot standard deviations.
+
+Production training uses Adam with its default momentum parameters, learning rate
+$2\times10^{-3}$, mini-batches of $128$, and $20$ epochs, with both the NumPy collection seed
+and PyTorch training seed fixed to $0$ for the one-network-per-disorder comparison.  The
+single-spin kernel in Eqs.~\eqref{eq:singleflip}--\eqref{eq:logki} is used only to define the
+self-consistency objective; production trajectories themselves use the checkerboard Metropolis
+sweeps described in \S\ref{sec:models}.  This operator mismatch can affect the quality of the
+learned coordinate, but not estimator correctness, because $\ell_\theta$ enters only through
+WE binning rather than through a likelihood-ratio tilt or modified transition probability.
+Accordingly, $I_\theta$ is termed a \emph{learned importance coordinate}, not a neural
+committor: no quantitative committor accuracy is claimed or required for the unbiased WE
+estimator \citep{zhang2010}.
+
+\subsection{Computational cost, statistics, and reporting}\label{sec:cost}
+Two cost measures are used. Matched-cost comparisons of sampling reach use the number of
+attempted spin updates as the common Monte Carlo work unit, natural for the Ising-tail
+comparison since both direct sampling and WE use the same Metropolis kernel. That measure is
+blind to neural inference, though, which is performed repeatedly during WE binning; wall-clock
+time is also recorded directly for this reason, and is the measure used whenever a figure of
+merit is quoted for a neural coordinate. The figure of merit is the cost-normalized inverse
+variance standard in transport variance-reduction studies \citep{spanier1969,wagnerfw2014},
+\begin{equation}
+\FOM=\frac{1}{\sigma_{\rm rel}^{2}\,T},
+\label{eq:fom}
+\end{equation}
+with $T$ the computational cost charged to the calculation.
+
+Suppose $R$ independent replicas produce estimates $\hat\pi_r$. Following the
+independent-replica uncertainty reporting recommended for WE studies \citep{zuckerman2017} and
+implemented in WESTPA \citep{russo2022}, the across-replica relative standard deviation is
+\begin{equation}
+\sigma_{\rm rel}=\frac{\mathrm{sd}(\hat\pi_1,\dots,\hat\pi_R)}{\bar\pi},\qquad
+\bar\pi=\frac1R\sum_{r=1}^{R}\hat\pi_r ,
+\label{eq:relsd}
+\end{equation}
+but for deep targets the most informative quantity can instead be the fraction of independent
+runs that observe the event at all, so zero-hit counts are reported explicitly. Event-positive
+and zero-hit replicas are compared using the exact conditional test for a $2\times2$
+contingency table introduced by Fisher \citep{fisher1922}, appropriate here because the
+expected counts are small. For the six-disorder comparison, the descriptive pooled Fisher test is
+complemented by a Cochran--Mantel--Haenszel analysis that preserves disorder realization as a
+stratum and estimates a common odds ratio \citep{mantel1959}. Confidence intervals on
+figure-of-merit ratios are obtained by the nonparametric bootstrap \citep{efron1979} in a
+two-level form that resamples the trained-network (or disorder-realization) axis in the outer
+loop and the replica axis in the inner loop.
+
+During software development, ChatGPT (OpenAI) and Claude (Anthropic) were used as coding
+assistants for code drafting, refactoring, and diagnostic review. Production calculations were
+executed under the recorded configurations, and code changes affecting reported results were
+checked against the exact validation gates described in \S\ref{sec:validation}.
+
+\FloatBarrier
+
+% ============================================================================
+\section{Validation}\label{sec:validation}
+
+\subsection{Exact-importance limit}\label{sec:bd}
+A biased one-dimensional birth--death chain provides a solvable test. Starting at $s_0=1$
+with absorbing boundaries at $0$ and $N=15$ and step probability $p=0.4$ toward the rare
+boundary, the exact committor is $h(s_0)=1.144443\times10^{-3}$. Direct Monte Carlo gives a
+relative variance of $2.17\times10^{-3}$ for $4\times10^{5}$ histories, in agreement with the
+Bernoulli prediction $1/(Np)$. Using the exact importance transform reduces the measured
+relative variance to approximately $10^{-30}$, numerically reproducing the zero-variance
+prediction of Eq.~\eqref{eq:telescope}.
+
+\subsection{Exact-enumeration gate for WE}\label{sec:gate}
+For the $4\times4$ Ising model, all $2^{16}$ configurations can be enumerated. Across three
+validation regimes (above $T_c$, below $T_c$ with the double-well structure, and the folded
+$|m|$ distribution), the mean $|\Delta\ln P|$ between WE and exact enumeration ranges from
+approximately $0.006$ to $0.024$; a separate learned-importance gate gives target-probability
+ratios of $1.000$ and $1.001$ relative to exact enumeration when WE is binned by magnetization
+and energy, respectively. These tests confirm that the implemented WE resampling reproduces the exact target measure
+under distinct binning coordinates, so later coordinate comparisons are interpreted as
+efficiency or reliability differences rather than changes in the target expectation.
+
+\begin{table}[H]
+\centering\small
+\caption{Validation ladder used before interpreting the larger rare-event calculations.}
+\label{tab:ladder}
+\begin{tabular}{p{0.30\textwidth}p{0.24\textwidth}p{0.34\textwidth}}
+\toprule
+Test & Reference & Outcome \\
+\midrule
+Birth--death importance transform & analytic committor & exact-importance relative variance
+$\sim10^{-30}$ \\
+$4\times4$ Ising WE distribution & exact enumeration & mean $|\Delta\ln P|=0.006$--$0.024$
+across three regimes \\
+$4\times4$ learned-coordinate gate & exact target probability & WE ratios $1.000$ and
+$1.001$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\FloatBarrier
+
+% ============================================================================
+\section{Rare-Tail Sampling in the Ising Ferromagnet}\label{sec:tail}
+
+\subsection{WE and naive sampling in the Ising tail}\label{sec:tailreach}
+At $L=20$ and matched update cost ($\sim3.4\times10^{8}$ spin updates), naive sampling and WE
+agree closely through the bulk and into the near tail, with $R=20$ independent replicas per
+method. At the second-deepest resolved bin ($|m|=0.886$), naive sampling is in fact the more
+precise of the two at matched cost: relative standard deviation $0.36$ against WE's $0.79$, a
+figure-of-merit advantage for naive of roughly $5\times$. Only at the single deepest bin
+reached by either method ($|m|=0.932$, $P\approx1.1\times10^{-7}$ for WE against
+$P\approx7.4\times10^{-8}$ for naive) does WE hold an edge, with a figure of merit about
+$2\times$ that of naive (relative standard deviation $3.10$ versus $4.47$); both estimates are
+individually noisy at this depth.
+
+The comparison therefore shows a rarity-dependent crossover in precision rather than a
+uniform algorithmic advantage. Direct sampling is more efficient in the near tail, where the
+event is still observed often enough that population control adds overhead, whereas WE becomes
+more precise at the deepest resolved bin, where direct-sampling variance has grown sharply.
+The exact gates of \S\ref{sec:validation}, rather than this performance comparison, establish
+the correctness of the WE implementation.
+
+\subsection{Calibration of the deep-rare spin-glass regime}\label{sec:depth}
+The neural-coordinate experiment is placed deliberately beyond the range where direct sampling
+is consistently informative. Table~\ref{tab:depth} summarizes the depth calibration at $L=16$
+and identifies the access-dominated regime used for the learned-coordinate test.
+
+\begin{table}[H]
+\centering\small
+\caption{Depth calibration for the EA model at $L=16$ using 10 independent direct-sampling
+replicas. The integer ``beyond'' indexes successively deeper discrete energy thresholds.}
+\label{tab:depth}
+\begin{tabular}{lrrr}
+\toprule
+Beyond & $\hat\pi$ & relative s.d. & zero-hit replicas \\
+\midrule
+1 & $5.29\times10^{-5}$ & 0.23 & 0/10 \\
+2 & $5.48\times10^{-6}$ & 0.46 & 0/10 \\
+3 & $7.14\times10^{-7}$ & 1.61 & 7/10 \\
+4 & $0$ & --- & 10/10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The beyond$=4$ threshold is used as a stress test of rare-event access for this reason: direct
+Monte Carlo is fully blind there, so the learned-coordinate comparison directly tests whether a
+configuration-space importance map can organize the weighted population so that trajectories
+continue to enter a region essentially absent from the direct Monte Carlo sample.
+
+\FloatBarrier
+
+% ============================================================================
+\section{Learned Importance in the Deep-Rare Spin Glass}\label{sec:deep}
+
+At beyond$=4$, direct Monte Carlo is effectively blind under the calibrated budget. The WE
+budget was increased to 80 bins, 40 walkers per occupied bin, 3000 iterations, and $\tau=2$.
+
+\subsection{One disorder, multiple trained networks}\label{sec:deepwithin}
+Three independently trained self-consistency networks were compared with the same
+physical-coordinate baselines on one EA disorder realization ($L=16$, $T=2.6$), $30$ replicas
+per method. Using independently trained networks establishes a reproducible coordinate-level
+effect rather than a favorable outcome from one particular initialization.
+
+\begin{table}[H]
+\centering\small
+\caption{Deep-rare EA comparison at $L=16$, beyond$=4$, one disorder realization. Each
+learned-coordinate row is a separately trained network evaluated over 30 replicas.}
+\label{tab:deep}
+\begin{tabular}{lrr}
+\toprule
+Method & event-positive replicas & discovery rate \\
+\midrule
+naive & 1/30 & 3.3\% \\
+$\WE[m]$ & 5/30 & 16.7\% \\
+$\WE[E]$ (balanced, $n=90$) & 44/90 & 48.9\% \\
+$\WE[I_\theta]$, seed 0 & 19/30 & 63.3\% \\
+$\WE[I_\theta]$, seed 1 & 20/30 & 66.7\% \\
+$\WE[I_\theta]$, seed 2 & 21/30 & 70.0\% \\
+$\WE[I_\theta]$, pooled ($n=90$) & 60/90 & 66.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The three independently trained networks give discovery rates of $63.3\%$, $66.7\%$, and
+$70.0\%$. An expanded independent $\WE[E]$ baseline of $90$ replicas is used for the balanced
+comparison, giving $44/90$ ($48.9\%$) against the pooled learned-coordinate result of $60/90$
+($66.7\%$). Fisher's exact test on this balanced comparison gives
+\begin{equation}
+\WE[I_\theta]:\ 60/90\ (66.7\%)\quad\text{versus}\quad\WE[E]:\ 44/90\ (48.9\%),\qquad p=0.023.
+\label{eq:withinp}
+\end{equation}
+This is the central within-disorder result: the learned importance map significantly increases
+the probability that a finite-budget WE run reaches the deep target, reproducibly across three
+independent initializations.
+
+The comparison is informative because energy is a strong physical baseline for this task: the
+target itself is defined by low energy, so an improvement over $\WE[E]$ is not a comparison
+against an irrelevant coordinate. The network receives the full spin configuration and can
+distinguish configurations with similar instantaneous energy but different local structure and
+different dynamical prospects of progressing toward the target. Two configurations at
+identical energy can have very different committor values on a frustrated landscape, after
+all, and an energy-adjacent label cannot represent that difference. The role of the learned
+function remains conservative throughout: it defines the WE partition rather than replacing
+the physical transition kernel, so the learned model influences how computational effort is
+distributed across configuration space while the unbiased WE resampling rule preserves the
+target expectation.
+
+\subsection{Generalization across disorder realizations}\label{sec:disordergen}
+The result above establishes reproducibility across network initializations on one $J_{ij}$
+sample; it does not by itself show that the effect extends beyond that particular disorder
+realization. Five further independent EA disorder realizations were therefore tested at
+$L=16$ and $T=2.6$ using the same beyond$=4$ calibration rule, one trained network each.  The
+absolute target threshold is disorder-specific because it is placed four discrete energy steps
+beyond that realization's pilot extreme; the resulting $e_*=E^*/N$ values are reported in
+Table~\ref{tab:disorder}.  Realization 12345 retains its previously calibrated explicit value,
+whereas the other five thresholds are calibrated independently with the same pilot protocol.
+Because the within-disorder experiment already probes initialization robustness, the additional
+computational budget was allocated to disorder variation rather than to another three-network
+ensemble for each realization.
+
+\begin{table}[H]
+\centering\small
+\caption{Deep-rare EA comparison repeated across six independent disorder realizations, one
+trained network each, beyond$=4$, $30$ replicas per method.  The target threshold $e_*=E^*/N$
+is calibrated separately for each realization.  Realization 12345 is the single-network reading
+of Table~\ref{tab:deep} (seed~0), not the three-network pooled result.}
+\label{tab:disorder}
+\begin{tabular}{lrrrr}
+\toprule
+Disorder & $e_*$ & $\WE[I_\theta]$ & $\WE[E]$ & Fisher $p$ \\
+\midrule
+12345 (original) & $-1.1190$ & 19/30 (63.3\%) & 12/30 (40.0\%) & 0.120 \\
+23456 & $-1.1328$ & 15/30 (50.0\%) & 8/30 (26.7\%) & 0.110 \\
+45678 & $-1.1016$ & 29/30 (96.7\%) & 26/30 (86.7\%) & 0.353 \\
+56789 & $-1.0938$ & 20/30 (66.7\%) & 15/30 (50.0\%) & 0.295 \\
+67890 & $-1.1172$ & 28/30 (93.3\%) & 29/30 (96.7\%) & 1.000 \\
+78901 & $-1.1641$ & 10/30 (33.3\%) & 5/30 (16.7\%) & 0.233 \\
+\midrule
+Pooled (6 realizations) & -- & 121/180 (67.2\%) & 95/180 (52.8\%) & 0.0071 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figs/fig_deeprare.pdf}
+\caption{The learned importance coordinate reaches the deep target more reliably than the
+physical energy coordinate. Error bars are Wilson $95\%$ intervals. (a) Discovery rate at
+beyond$=4$ (disorder realization $12345$): open diamonds are the three independently trained
+networks (Table~\ref{tab:deep}); $\WE[E]$ uses the balanced $90$-replica baseline. (b) The same
+comparison repeated across six independent disorder realizations, one trained network each
+(Table~\ref{tab:disorder}), with the pooled result at right.}
+\label{fig:deeprare}
+\end{figure}
+
+No single realization reaches significance on its own at $n=30$. Realizations 45678 and 67890
+are near ceiling for both methods, which limits their discriminating power; realization 67890
+is also the only stratum in which $\WE[E]$ has the nominally higher discovery rate ($96.7\%$
+versus $93.3\%$). In the other five of six realizations the learned coordinate has the higher
+discovery rate. For descriptive comparison, pooling all six realizations gives:
+\begin{equation}
+\WE[I_\theta]:\ 121/180\ (67.2\%) \quad\text{versus}\quad \WE[E]:\ 95/180\ (52.8\%),
+\qquad p=0.0071.
+\label{eq:disordergen}
+\end{equation}
+Because the six comparisons have different disorder-specific event rates, inferential analysis
+also preserves disorder as a stratum. The Cochran--Mantel--Haenszel analysis gives a common odds
+ratio of $2.33$ ($95\%$ CI $[1.40,3.88]$) with $p=0.0011$ \citep{mantel1959}, corroborating the
+descriptive pooled result without treating the six disorder realizations as one homogeneous
+sample. Together with the within-disorder network replication, this shows that the reliability
+advantage extends beyond a single quenched-disorder realization and is reproduced across the
+six realizations tested. Wall-clock cost ratios for the five additional realizations
+($4.45$--$4.97$ relative to $\WE[E]$) are consistent with the other measurements in this study
+(\S\ref{sec:costdisc}), so the cost penalty is likewise reproduced across disorder.
+
+\FloatBarrier
+
+% ============================================================================
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Transport-theoretic interpretation of the results}\label{sec:established}
+The results support a hierarchical transfer of transport-inspired variance-reduction ideas to
+rare-event sampling in spin systems. At the theoretical level, the committor supplies an
+event-conditioned importance function for the first-passage problem, while the exact Doob
+transform provides the zero-variance reference. The birth--death calculation verifies that
+limit directly. At the algorithmic level, the exact-enumeration gates show that the unbiased,
+weight-conserving WE resampling construction can exploit an approximate progress coordinate
+without changing the target expectation. This separation between correctness and coordinate
+quality is essential for the learned-coordinate calculations: an imperfect coordinate may
+waste computational effort, but it does not redefine the probability being estimated.
+
+The $L=20$ Ising calculation shows how the value of population control changes with rarity.
+Direct sampling is more efficient in the better-populated part of the tail, whereas WE becomes
+more precise at the deepest resolved bin under the same spin-update budget. The comparison
+therefore does not support a uniform advantage for WE across the full tail; instead it shows the
+rarity-dependent crossover expected of a variance-reduction method whose population-control
+overhead becomes worthwhile only after ordinary sampling grows sufficiently sparse. This
+observation provides a useful bridge between the exact validation tests and the substantially
+deeper EA calculation, where the central difficulty is no longer modest variance reduction but
+whether an independent run reaches the target at all.
+
+\subsection{Learned importance and deep-event reliability}\label{sec:whymatters}
+The central empirical result appears in the frustrated EA model. Energy is already a strong
+physical coordinate for the selected low-energy event, so $\WE[E]$ is a demanding baseline
+rather than an intentionally weak comparator. Nevertheless, the full-configuration coordinate
+$I_\theta$ increases the frequency with which independent WE calculations reach the calibrated
+deep target. The effect is reproduced along two distinct axes. On one disorder realization,
+three independently trained networks give discovery rates of $63.3\%$, $66.7\%$, and $70.0\%$
+against a balanced $48.9\%$ energy-coordinate baseline. Across six independent quenched-disorder
+realizations, one trained network per realization gives an aggregate discovery rate of $67.2\%$
+for $\WE[I_\theta]$ versus $52.8\%$ for $\WE[E]$.
+
+Because the absolute event rate varies from one disorder realization to another, the
+stratified analysis is more informative than treating all replicas as one homogeneous sample.
+The Cochran--Mantel--Haenszel estimate gives a common odds ratio of $2.33$ ($95\%$ CI
+$[1.40,3.88]$, $p=0.0011$), consistent with the descriptive pooled comparison and with the
+fact that five of the six disorder realizations favor the learned coordinate. The near-ceiling
+realizations contribute relatively little discriminating information, but they do not reverse
+the overall direction of the stratified effect. Taken together, the results show that the
+reliability advantage is not confined to a particular neural initialization or a single
+quenched-disorder sample; it is reproduced across the six disorder realizations tested.
+
+The physical interpretation is that energy, although informative, compresses a frustrated spin
+configuration to one scalar. Configurations with similar instantaneous energy can differ in
+local frustration pattern and in their dynamical prospects of progressing toward the target.
+A full-configuration importance coordinate can therefore encode progress information that is
+not represented by energy alone. The present results establish the utility of that information
+for WE population allocation; they do not require, and do not claim, that $I_\theta$ is a
+quantitatively exact committor.
+
+\subsection{Reliability and computational efficiency are distinct}\label{sec:costdisc}
+Improved discovery reliability does not, by itself, imply a computational speedup. On the
+spin-update cost measure, the three within-disorder trained networks give figure-of-merit ratios
+of $1.29$, $1.07$, and $1.04$ against $\WE[E]$, with a two-level-bootstrap geometric-mean ratio
+of $1.16$ ($95\%$ CI $[0.65,2.12]$). That measure is incomplete for a neural coordinate because
+it does not charge the repeated network evaluations performed at every resampling step.
+
+Wall-clock time was therefore recorded directly for the final deep-rare calculations. Across
+the tested networks and disorder realizations, $\WE[I_\theta]$ required approximately four to
+five times the wall-clock time of $\WE[E]$. Charging both methods on a like-for-like native
+replica basis gives
+\begin{equation}
+\FOM_{\rm wall}(\WE[I_\theta])\big/\FOM_{\rm wall}(\WE[E]) = 0.33,
+\qquad 95\%\ \mathrm{CI}=[0.19,0.58],
+\label{eq:fomwall}
+\end{equation}
+which lies below parity. The distinction is therefore substantive rather than semantic: the
+learned coordinate organizes the weighted population more effectively for deep-target access,
+but the present CPU implementation pays enough inference overhead that this reliability gain
+does not translate into higher wall-clock efficiency. At the tested scale, repeated neural
+inference is the dominant measured limitation on computational competitiveness. Reducing that
+overhead through cheaper architectures, caching, batching, or hardware acceleration is a
+natural target for a dedicated efficiency study.
+
+\subsection{Relation to neighboring rare-event methods}\label{sec:relation}
+The present implementation is one member of a broader splitting and path-sampling family.
+FFS and AMS advance trajectories through fixed interfaces or adaptively chosen levels
+\citep{allen2009,valeriani2007,cerou2007}, and transition-path sampling works directly with
+reactive-path ensembles, which frees it from a fixed scalar coordinate but targets different
+estimators than the stationary tail probabilities studied here
+\citep{chandler1978,dellago1998,bolhuis2002}. WE differs in maintaining a continuously weighted
+population and resampling within bins, so that the bins influence variance but not the target
+measure \citep{huber1996,zhang2010,zuckerman2017}. What the transport analogy adds is a
+principled way to think about where that weighted population should be concentrated: CADIS
+couples deterministic importance information to source biasing and weight-window construction
+\citep{wagner1998,haghighat2003,wagnerfw2014}, while the present implementation adopts the
+population-control part of that logic without altering the Metropolis kernel.
+
+Against the neural rare-event literature, the principal distinction is where the learned object
+enters the algorithm. Flow-based and autoregressive samplers learn global equilibrium structure
+\citep{wu2019,noe2019,nicoli2020,gabrie2022}; neural committor and Feynman--Kac methods target
+dynamical progress toward a specified event \citep{khoo2019,li2022,strahan2023}; and active or
+self-consistent committor schemes concentrate training and sampling effort in transition-relevant
+regions \citep{rotskoff2022,kang2024,trizio2025}. The framework of Kim and Cai is closest in
+spirit, combining a learned event-specific importance function with biased transitions and
+branching \citep{kimcai2026}. In the notation of \S\ref{sec:adjoint}, their learned importance
+plays the role of $h$, their modified transitions the role of the tilt, and their branching the
+role of splitting. The present study instead inserts the learned function only in the WE
+partition. This more conservative use of learned importance preserves the original physical
+dynamics and allows coordinate quality to be assessed without introducing likelihood-ratio
+error from an approximate directional bias.
+
+\subsection{Scope and outlook}\label{sec:scope}
+The principal learned-coordinate experiment concerns two-dimensional EA systems at $L=16$,
+$T=2.6$, and the calibrated beyond$=4$ target, using six independent disorder realizations and
+a compact periodic convolutional architecture. Within that scope, the reliability advantage is
+reproduced across quenched disorder and across independent neural initializations. The present
+data do not determine how the magnitude of that advantage changes with lattice size,
+temperature, or a substantially larger disorder ensemble, and $I_\theta$ is used as a
+committor-inspired importance coordinate rather than as a quantitatively validated estimate of
+the exact committor. These boundaries do not alter the demonstrated result; they define the
+next tests needed to establish broader scaling and mechanistic interpretation.
+
+Natural extensions are therefore to repeat the deep-target comparison across $L$ and $T$, to
+benchmark learned coordinates against tractable reference committors on smaller systems, and to
+test architectures that encode spin symmetry or local frustration more directly. From a
+computational perspective, reducing inference overhead is equally important, because the
+current results show that better deep-event reliability and better wall-clock efficiency are
+separate objectives. The transport-inspired framework is compatible with both directions:
+coordinate quality can be improved without changing the unbiased WE estimator, while the
+population-control machinery can remain fixed as model and hardware choices evolve.
+
+\FloatBarrier
+
+% ============================================================================
+\section{Conclusions}\label{sec:conclusions}
+
+Adjoint transport theory provides a useful organizing principle for rare-event sampling in
+lattice spin systems. The committor supplies the event-specific importance function, the exact
+Doob transform defines the zero-variance ideal, and weight-conserving population control
+provides a practical way to exploit approximate importance without changing the target
+measure; these elements were validated sequentially from a solvable birth--death process to
+exact enumeration of the Ising model.
+
+At system scale, WE and naive sampling resolve the $L=20$ Ising magnetization tail to
+comparable depth at $R=20$. Direct sampling is more precise in the near tail, while WE holds a
+modest, roughly two-fold figure-of-merit advantage at the single deepest resolved bin. The
+benefit of population control is therefore rarity-dependent rather than uniform across the
+tail.
+
+In the frustrated EA model, the learned configuration-space importance coordinate produces the
+main new result of this study. Across six independent disorder realizations with one trained
+network each, it reaches the deep target in $121/180$ replicas against $95/180$ for the physical
+energy coordinate ($67.2\%$ versus $52.8\%$).  Preserving disorder realization as a stratum
+gives a common odds ratio of $2.33$ ($95\%$ CI $[1.40,3.88]$, $p=0.0011$), while the descriptive
+pooled Fisher comparison gives $p=0.0071$.  The same direction is reproduced within one disorder
+across three independently trained networks against a balanced baseline ($66.7\%$ versus
+$48.9\%$, $p=0.023$).  A learned progress coordinate can extract dynamical information not
+fully represented by a scalar physical observable, and the advantage is not confined to one
+particular quenched-disorder sample: it is reproduced across the six disorder realizations
+tested.
+
+That advantage is presently one of reliability rather than efficiency: repeated network
+inference is directly measured to cost four to five times $\WE[E]$'s wall-clock time, leaving
+the learned coordinate at roughly one-third of parity in figure of merit ($0.33$, $95\%$ CI
+$[0.19,0.58]$). At the tested scale, repeated neural inference is therefore the dominant measured
+limitation on wall-clock efficiency.
+
+% ============================================================================
+\section*{Data and Code Availability}
+The code, input data, trained network weights, quenched disorder realizations, per-replica
+outputs, validation data, and wall-clock records required to reproduce the reported results have
+been assembled into an archival package. A persistent public repository DOI will be inserted
+before final submission. The package also records the software environment, configuration files,
+and random seeds used for the production calculations so that the reported analyses can be
+reproduced under the archived environment.
+
+\section*{Acknowledgements}
+The author gratefully acknowledges the support of Fahad Bin Sultan University, Tabuk, Saudi
+Arabia, including access to the computational environment used for the numerical experiments.
+
+\printcredits
+
+% TODO before submission: insert an author-confirmed Declaration of competing interest if
+% required by the target journal. No statement is inserted automatically here because it is an
+% author declaration and must not be inferred.
+
+\section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
+During the preparation of this work, the author used ChatGPT (OpenAI) and Claude (Anthropic)
+to assist with manuscript organization, language refinement, critical review, and software
+support. After using these tools, the author reviewed and edited the content as needed,
+independently verified the scientific claims and numerical results, and takes full
+responsibility for the content of the publication.
+
+% ============================================================================
+\begin{thebibliography}{99}
+\bibitem{bolhuis2002} P. G. Bolhuis, D. Chandler, C. Dellago, P. L. Geissler, Transition path
+sampling: throwing ropes over rough mountain passes, in the dark, Annu. Rev. Phys. Chem. 53 (2002)
+291--318.
+\bibitem{kahn1951} H. Kahn, T. E. Harris, Estimation of particle transmission by random sampling,
+Natl. Bur. Stand. Appl. Math. Ser. 12 (1951) 27--30.
+\bibitem{kalos2008} M. H. Kalos, P. A. Whitlock, Monte Carlo Methods, 2nd ed., Wiley-VCH,
+Weinheim, 2008.
+\bibitem{e2006} W. E, E. Vanden-Eijnden, Towards a theory of transition paths, J. Stat. Phys. 123
+(2006) 503--523.
+\bibitem{metzner2009} P. Metzner, C. Sch\"utte, E. Vanden-Eijnden, Transition path theory for
+Markov jump processes, Multiscale Model. Simul. 7 (2009) 1192--1219.
+\bibitem{vandeneijnden2010} E. Vanden-Eijnden, Transition path theory, in: M. Ferrario,
+G. Ciccotti, K. Binder (Eds.), Computer Simulations in Condensed Matter Systems: From Materials to
+Chemical Biology, Vol. 1, Springer, 2010, pp. 453--493.
+\bibitem{lewins1965} J. Lewins, Importance: The Adjoint Function, Pergamon Press, Oxford, 1965.
+\bibitem{spanier1969} J. Spanier, E. M. Gelbard, Monte Carlo Principles and Neutron Transport
+Problems, Addison-Wesley, Reading, MA, 1969.
+\bibitem{bell1970} G. I. Bell, S. Glasstone, Nuclear Reactor Theory, Van Nostrand Reinhold,
+New York, 1970.
+\bibitem{wagner1998} J. C. Wagner, A. Haghighat, Automated variance reduction of Monte Carlo
+shielding calculations using the discrete ordinates adjoint function, Nucl. Sci. Eng. 128 (1998)
+186--208.
+\bibitem{haghighat2003} A. Haghighat, J. C. Wagner, Monte Carlo variance reduction with
+deterministic importance functions, Prog. Nucl. Energy 42 (2003) 25--53.
+\bibitem{doob1984} J. L. Doob, Classical Potential Theory and Its Probabilistic Counterpart,
+Springer, New York, 1984.
+\bibitem{touchette2009} H. Touchette, The large deviation approach to statistical mechanics,
+Phys. Rep. 478 (2009) 1--69.
+\bibitem{chetrite2015} R. Chetrite, H. Touchette, Nonequilibrium Markov processes conditioned on
+large deviations, Ann. Henri Poincar\'e 16 (2015) 2005--2057.
+\bibitem{wagnerfw2014} J. C. Wagner, D. E. Peplow, S. W. Mosher, FW-CADIS method for global and
+regional variance reduction of Monte Carlo radiation transport calculations, Nucl. Sci. Eng. 176
+(2014) 37--57.
+\bibitem{huber1996} G. A. Huber, S. Kim, Weighted-ensemble Brownian dynamics simulations for
+protein association reactions, Biophys. J. 70 (1996) 97--110.
+\bibitem{zhang2010} B. W. Zhang, D. Jasnow, D. M. Zuckerman, The ``weighted ensemble'' path
+sampling method is statistically exact for a broad class of stochastic processes and binning
+procedures, J. Chem. Phys. 132 (2010) 054107.
+\bibitem{bhatt2010} D. Bhatt, B. W. Zhang, D. M. Zuckerman, Steady-state simulations using
+weighted ensemble path sampling, J. Chem. Phys. 133 (2010) 014110.
+\bibitem{russo2022} J. D. Russo, et al., WESTPA 2.0: high-performance upgrades for weighted
+ensemble simulations and analysis of longer-timescale applications, J. Chem. Theory Comput. 18
+(2022) 638--649.
+\bibitem{allen2009} R. J. Allen, C. Valeriani, P. R. ten Wolde, Forward flux sampling for rare
+event simulations, J. Phys.: Condens. Matter 21 (2009) 463102.
+\bibitem{valeriani2007} C. Valeriani, R. J. Allen, M. J. Morelli, D. Frenkel, P. R. ten Wolde,
+Computing stationary distributions in equilibrium and nonequilibrium systems with forward flux
+sampling, J. Chem. Phys. 127 (2007) 114109.
+\bibitem{cerou2007} F. C\'erou, A. Guyader, Adaptive multilevel splitting for rare event analysis,
+Stoch. Anal. Appl. 25 (2007) 417--443.
+\bibitem{dellago1998} C. Dellago, P. G. Bolhuis, D. Chandler, Efficient transition path sampling:
+application to Lennard-Jones cluster rearrangements, J. Chem. Phys. 108 (1998) 9236--9245.
+\bibitem{wu2019} D. Wu, L. Wang, P. Zhang, Solving statistical mechanics using variational
+autoregressive networks, Phys. Rev. Lett. 122 (2019) 080602.
+\bibitem{noe2019} F. No\'e, S. Olsson, J. K\"ohler, H. Wu, Boltzmann generators: sampling
+equilibrium states of many-body systems with deep learning, Science 365 (2019) eaaw1147.
+\bibitem{nicoli2020} K. A. Nicoli, et al., Asymptotically unbiased estimation of physical
+observables with neural samplers, Phys. Rev. E 101 (2020) 023304.
+\bibitem{gabrie2022} M. Gabri\'e, G. M. Rotskoff, E. Vanden-Eijnden, Adaptive Monte Carlo augmented
+with normalizing flows, Proc. Natl. Acad. Sci. U.S.A. 119 (2022) e2109420119.
+\bibitem{khoo2019} Y. Khoo, J. Lu, L. Ying, Solving for high-dimensional committor functions using
+artificial neural networks, Res. Math. Sci. 6 (2019) 1.
+\bibitem{strahan2023} J. Strahan, J. Finkel, A. R. Dinner, J. Weare, Predicting rare events using
+neural networks and short-trajectory data, J. Comput. Phys. 488 (2023) 112152.
+\bibitem{hua2024} X. Hua, R. Ahmad, J. Blanchet, W. Cai, Accelerated sampling of rare events using
+a neural network bias potential, arXiv:2401.06936 (2024).
+\bibitem{kimcai2026} M. Kim, W. Cai, Accelerated Markov Chain Monte Carlo simulation via neural
+network-driven importance sampling, arXiv:2602.12294 (2026).
+\bibitem{zhao2025} Y. Zhao, Y. Tang, P. Zhang, Nonequilibrium statistical mechanics revealed by
+Doob $h$ transform and variational autoregressive networks, Phys. Rev. E 111 (2025) 034120.
+\bibitem{ising1925} E. Ising, Beitrag zur Theorie des Ferromagnetismus, Z. Phys. 31 (1925)
+253--258.
+\bibitem{onsager1944} L. Onsager, Crystal statistics. I. A two-dimensional model with an
+order-disorder transition, Phys. Rev. 65 (1944) 117--149.
+\bibitem{edwards1975} S. F. Edwards, P. W. Anderson, Theory of spin glasses, J. Phys. F: Met.
+Phys. 5 (1975) 965--974.
+\bibitem{binder1986} K. Binder, A. P. Young, Spin glasses: experimental facts, theoretical
+concepts, and open questions, Rev. Mod. Phys. 58 (1986) 801--976.
+\bibitem{metropolis1953} N. Metropolis, A. W. Rosenbluth, M. N. Rosenbluth, A. H. Teller,
+E. Teller, Equation of state calculations by fast computing machines, J. Chem. Phys. 21 (1953)
+1087--1092.
+\bibitem{zuckerman2017} D. M. Zuckerman, L. T. Chong, Weighted ensemble simulation: review of
+methodology, applications, and software, Annu. Rev. Biophys. 46 (2017) 43--57.
+\bibitem{li2022} H. Li, Y. Khoo, Y. Ren, L. Ying, A semigroup method for high dimensional committor
+functions based on neural network, Proc. Mach. Learn. Res. 145 (2022) 598--618.
+\bibitem{rotskoff2022} G. M. Rotskoff, A. R. Mitchell, E. Vanden-Eijnden, Active importance
+sampling for variational objectives dominated by rare events: consequences for optimization and
+generalization, Proc. Mach. Learn. Res. 145 (2022) 757--780.
+\bibitem{kang2024} P. Kang, E. Trizio, M. Parrinello, Computing the committor with the committor to
+study the transition state ensemble, Nat. Comput. Sci. 4 (2024) 451--460.
+\bibitem{trizio2025} E. Trizio, P. Kang, M. Parrinello, Everything everywhere all at once: a
+probability-based enhanced sampling approach to rare events, Nat. Comput. Sci. 5 (2025)
+582--591.
+\bibitem{mantel1959} N. Mantel, W. Haenszel, Statistical aspects of the analysis of data from
+retrospective studies of disease, J. Natl. Cancer Inst. 22 (1959) 719--748.
+\bibitem{fisher1922} R. A. Fisher, On the interpretation of $\chi^2$ from contingency tables,
+and the calculation of $P$, J. R. Stat. Soc. 85 (1922) 87--94.
+\bibitem{efron1979} B. Efron, Bootstrap methods: another look at the jackknife, Ann. Statist.
+7 (1979) 1--26.
+\bibitem{chandler1978} D. Chandler, Statistical mechanics of isomerization dynamics in liquids and
+the transition state approximation, J. Chem. Phys. 68 (1978) 2959--2970.
+\end{thebibliography}
+
+\end{document}
