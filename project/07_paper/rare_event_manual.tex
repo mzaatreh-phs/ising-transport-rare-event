@@ -224,6 +224,82 @@ B=\{s: E(s)/N \le h\},
 with $h$ well below anything ordinary sampling produces. We want $\pi=\mathbb{P}(s\in B)$, and
 $\pi$ may be $10^{-5}$ or smaller.
 
+\begin{figure}[H]\centering
+\begin{tikzpicture}[scale=0.92,transform shape]
+% ============================================================
+% panel (a): static picture -- tail mass of the stationary distribution
+% ============================================================
+\begin{scope}
+\node[font=\small\bfseries] at (3.0,3.7){(a) Static: tail mass of $\pi_s$};
+% shaded tail region B, x in [0,1.5]
+\fill[orange!16] (0,0.02) to[out=8,in=200] (0.5,0.05) to[out=15,in=190] (1,0.12)
+ to[out=15,in=205] (1.5,0.3) -- (1.5,0) -- (0,0) -- cycle;
+% shaded bulk region A, x in [1.5,6]
+\fill[blue!10] (1.5,0.3) to[out=25,in=195] (2,0.7) to[out=25,in=200] (2.5,1.4)
+ to[out=25,in=205] (3,2.2) to[out=20,in=200] (3.5,2.8) to[out=15,in=170] (4,3.0)
+ to[out=-15,in=165] (4.5,2.7) to[out=-15,in=160] (5,1.8) to[out=-20,in=155] (5.5,0.8)
+ to[out=-25,in=150] (6,0.15) -- (6,0) -- (1.5,0) -- cycle;
+% the curve itself, drawn once on top
+\draw[very thick,black!75] (0,0.02) to[out=8,in=200] (0.5,0.05) to[out=15,in=190] (1,0.12)
+ to[out=15,in=205] (1.5,0.3) to[out=25,in=195] (2,0.7) to[out=25,in=200] (2.5,1.4)
+ to[out=25,in=205] (3,2.2) to[out=20,in=200] (3.5,2.8) to[out=15,in=170] (4,3.0)
+ to[out=-15,in=165] (4.5,2.7) to[out=-15,in=160] (5,1.8) to[out=-20,in=155] (5.5,0.8)
+ to[out=-25,in=150] (6,0.15);
+% axes
+\draw[-{Stealth[length=5pt]},thick,black!70] (0,0)--(6.3,0) node[right,font=\scriptsize]{$E(s)/N$};
+\draw[-{Stealth[length=5pt]},thick,black!70] (0,0)--(0,3.4) node[above,font=\scriptsize]{$\pi_s(s)$};
+% threshold line
+\draw[densely dashed,gray!60!black] (1.5,0)--(1.5,0.85);
+\node[font=\scriptsize,anchor=north,gray!50!black] at (1.5,-0.05){$h$};
+% labels
+\node[font=\scriptsize,orange!65!black,anchor=south west] at (0.05,0.65){$B$ (rare event)};
+\node[font=\scriptsize,blue!55!black] at (4.0,3.25){$A$ (bulk)};
+\draw[-{Stealth[length=3.5pt]},orange!65!black] (0.55,0.6)--(0.85,0.28);
+\node[font=\scriptsize,orange!65!black,align=left] at (0.55,-0.75){$\pi_s(B)=\pi$\\[-1pt]\footnotesize(tiny)};
+\node[font=\scriptsize,blue!55!black] at (4.0,-0.75){$\pi_s(A)\approx1$};
+\end{scope}
+% ============================================================
+% panel (b): dynamical picture -- hitting probability from a bulk state
+% ============================================================
+\begin{scope}[xshift=8.4cm]
+\node[font=\small\bfseries] at (3.0,3.7){(b) Dynamical: hitting probability};
+% target cluster B (orange), far left
+\node[circle,fill=orange!80!black,minimum size=9pt,inner sep=0pt] (b1) at (0.3,1.9){};
+\node[circle,fill=orange!80!black,minimum size=9pt,inner sep=0pt] (b2) at (0.3,1.1){};
+\node[font=\scriptsize,orange!70!black,anchor=north] at (0.3,0.65){$B$ (rare)};
+% intermediate chain, committor color interpolates blue -> orange
+\node[circle,fill=orange!35!blue!55,minimum size=9pt,inner sep=0pt] (i1) at (1.7,1.7){};
+\node[circle,fill=orange!55!blue!45,minimum size=9pt,inner sep=0pt] (i2) at (3.0,2.1){};
+\node[circle,fill=orange!75!blue!25,minimum size=9pt,inner sep=0pt] (i3) at (4.2,1.6){};
+\node[font=\scriptsize,black!55,align=center] at (2.9,3.15){$\Ical$: $q(s)$ increases\\[-1pt]left to right $\to$};
+% bulk cluster A (blue), right
+\foreach \p/\xx/\yy in {a1/5.6/2.7,a2/6.5/2.2,a3/6.1/1.4,a4/5.3/1.1,a5/6.7/0.7}{
+ \node[circle,fill=blue!65!black,minimum size=9pt,inner sep=0pt] (\p) at (\xx,\yy){};}
+\node[font=\scriptsize,blue!55!black] at (6.0,3.25){$A$ (bulk)};
+% dense local mixing within A (thin gray links)
+\foreach \p/\q in {a1/a2,a2/a3,a3/a4,a4/a5,a5/a2,a1/a4}{
+ \draw[gray!45,thin] (\p)--(\q);}
+% the rare successful path: a4 -> i3 -> i2 -> i1 -> b2
+\draw[-{Stealth[length=5pt]},very thick,orange!85!black]
+ (a4)--(i3)--(i2)--(i1)--(b2);
+\node[font=\scriptsize,orange!75!black,align=center] at (2.9,0.15){success: reaches $B$ before $A$, prob.\ $q(s_0)$};
+% a typical failed excursion: a1 -> partway -> back to a2, dashed and faded
+\draw[-{Stealth[length=4pt]},thick,densely dashed,gray!65] (a1) .. controls (4.6,2.9) and (3.6,2.6) .. (3.1,2.25)
+ .. controls (2.5,1.9) and (4.0,1.0) .. (a2);
+\node[font=\scriptsize,gray!55,align=center] at (5.9,-0.75){typical: returns to $A$\\[-1pt]first, prob.\ $1-q$};
+\end{scope}
+\end{tikzpicture}
+\caption{\SCHEM{} Two readings of the same rare event $B$ (Def.~\ref{def:rare}), matching the
+static/dynamical distinction of \S\ref{sec:beyond} below. (a) $\pi$ as tail mass of the
+stationary distribution --- answerable by enumeration alone, no dynamics. (b) $\hat\pi$ as this
+manual actually reports it: a hitting probability, the committor $q(s)=\mathbb{P}(\tau_B<\tau_A\mid
+s_0=s)$ of \S\ref{sec:corr} (Eq.~\eqref{eq:bke}). Node shade in (b) encodes $q$, from bulk
+($q\approx0$) to target ($q=1$); most trajectories that leave $A$ relax back into it (dashed), which
+is exactly why brute force is expensive (Fig.~\ref{fig:poisson}) and why a good importance function
+is worth learning (\S\ref{sec:learned}).}
+\label{fig:rareevent}
+\end{figure}
+
 \subsection{Two notions of ``rare'': static tail versus dynamical hitting probability}
 Definition~\ref{def:rare} is deliberately silent on \emph{how} $\pi$ is measured, and this manual
 uses two different answers that must not be confused.
@@ -298,6 +374,7 @@ sweep $=N=256$ spin updates, so that is $2.6\times10^{10}$ spin updates for one 
 \end{tikzpicture}
 \caption{\SCHEM{} Exact Poisson relation \eqref{eq:poisson}, not fitted data. Each decade of
 rarity costs a decade of samples. This is the wall the project exists to get around.}
+\label{fig:poisson}
 \end{figure}
 
 \subsection{The idea behind every solution}
@@ -1125,6 +1202,26 @@ run head-to-head against the adaptive baseline on matched net-seeds, made both t
 the rel.\ s.d.\ \emph{worse}, not better. The variance is intrinsic to what each trained network
 learns, not an artifact of how its output is binned.
 
+\paragraph{The spin-update cost measure above is blind to network inference, and correcting for
+it reverses the verdict.} The FOM in the table and figure above charges cost in spin updates,
+which does not include the neural network's forward pass performed at every WE resampling step.
+Measuring wall-clock time directly (not reconstructed from logs) shows $WE[I_\theta]$ costs
+$4$--$5\times$ $WE[E]$'s wall-clock time, consistently across every seed and every disorder
+realization tested anywhere in this project (\S\ref{sec:disordergen}). A two-level bootstrap over
+the sixteen reproducible seeds (seed 0's non-reproducible unseeded run, predating
+\S\ref{man:seedbug}'s fix, is excluded), resampling each seed's replicas at its own measured
+wall-clock cost, gives
+\begin{equation}
+\mathrm{FOM}_{\rm wall}(WE[I_\theta])\big/\mathrm{FOM}_{\rm wall}(WE[E]) = 0.405,
+\qquad 95\%\ \mathrm{CI}=[0.268,\,0.623],
+\label{eq:milefomwall}
+\end{equation}
+below parity and excluding $1$: \textbf{once inference cost is counted like-for-like, milestoning
+is a statistically significant loss}, not the ambiguous small effect the spin-update measure
+suggested. This does not contradict \S\ref{sec:milestoneresults}'s own finding that the point
+estimate never resolves in \emph{sign} under the cheaper cost metric --- it adds the cost axis
+that metric was blind to, and on that axis the answer is unambiguous.
+
 \subsection{Pushing deeper fails, and bin count is ruled out as the fix}
 At one step rarer, WE[$I_\theta$] scores below WE[$E$] in every configuration tried: default bins
 at two replica counts, and a $1.8\times$ larger bin count. Raising $n_{\text{bins}}$ from 50 to 90
@@ -1150,6 +1247,141 @@ Tripling the replica count tightened both intervals \emph{and} moved both median
 point estimate itself receded as evidence accumulated --- the signature of noise, not signal. The
 initially exciting ``$+87\%$'' became a statistically insignificant $+39\%$ with an interval
 including no difference at all.
+
+Repeating the $R=30$ self-consistent-vs-$WE[E]$ comparison on directly measured wall-clock time
+(same treatment as the milestoning correction of \S\ref{sec:milestoneresults}, correcting for the
+network inference cost the spin-update measure above does not charge) gives a wall-clock-fair FOM
+ratio of $0.78$, 95\% CI $[0.39,\,1.60]$ --- still not significant, and the only one of this
+project's three FOM-based comparisons where the wall-clock-fair measurement does \emph{not}
+reverse the spin-update-cost verdict to a clear loss. Unlike milestoning and the deep-rare
+comparison of \S\ref{sec:costdisc}, this coordinate's cost disadvantage cannot be resolved either
+way at the replica counts tested.
+
+\subsection{Deep-rare spin glass: reliability improves, wall-clock efficiency does not}\label{sec:deepwithin}
+The comparisons above (\S\ref{sec:milestoneresults}, one or two steps beyond the pilot extreme)
+sit in a regime naive Monte Carlo still reaches cleanly. At $\texttt{beyond}=4$
+naive is effectively blind under the calibrated budget, so this is the genuine stress test of
+whether a learned importance map can organise the weighted population to keep reaching a region
+direct sampling essentially never visits. The WE budget was increased to 80 bins, 40 walkers per
+occupied bin, 3000 iterations, $\tau=2$.
+
+Three independently trained self-consistency networks were compared against the physical-energy
+baseline on one EA disorder realization ($L=16$, $T=2.6$), $30$ replicas per method.
+
+\begin{table}[H]\centering\small
+\caption{\MEAS{} Deep-rare EA comparison, $L=16$, \texttt{beyond}$=4$, one disorder realization.
+Each learned-coordinate row is a separately trained network, 30 replicas.}
+\label{tab:deep}
+\begin{tabular}{lrr}\toprule
+Method & event-positive replicas & discovery rate\\\midrule
+naive & 1/30 & 3.3\%\\
+WE[$m$] & 5/30 & 16.7\%\\
+WE[$E$] (balanced, $n=90$) & 44/90 & 48.9\%\\
+WE[$I_\theta$], seed 0 & 19/30 & 63.3\%\\
+WE[$I_\theta$], seed 1 & 20/30 & 66.7\%\\
+WE[$I_\theta$], seed 2 & 21/30 & 70.0\%\\
+WE[$I_\theta$], pooled ($n=90$) & 60/90 & 66.7\%\\
+\bottomrule\end{tabular}
+\end{table}
+
+Each of the three independently trained networks individually beats a single $30$-replica
+$WE[E]$ draw ($63\%$/$67\%$/$70\%$ versus $40\%$). Because that single draw is reused as the
+comparison point for all three, an independent $90$-replica $WE[E]$ baseline is used for the
+balanced comparison reported here instead: $44/90$ ($48.9\%$). Fisher's exact test gives
+\begin{equation}
+WE[I_\theta]:\ 60/90\ (66.7\%)\quad\text{versus}\quad WE[E]:\ 44/90\ (48.9\%),\qquad p=0.023,
+\label{eq:withinp}
+\end{equation}
+reproducible across three independent network initializations. Energy is not a weak baseline
+here --- the target is itself defined by low energy --- so this is a comparison against a strong
+physical coordinate, not an easy target. Two configurations at identical energy can carry very
+different committor values on a frustrated landscape, and only a coordinate that sees the full
+spin configuration (not just its energy) can tell them apart.
+
+\subsection{Generalization across disorder realizations}\label{sec:disordergen}
+The result above establishes reproducibility across network initializations on \emph{one}
+disorder sample; it does not by itself show the effect is a property of the method rather than of
+that particular $J_{ij}$ realization. Two further independent EA disorder realizations were
+tested at the same $L=16$, $T=2.6$, \texttt{beyond}$=4$ configuration, one trained network each
+(the network-initialization axis above already shows most of its variance is replica noise, not
+true init-to-init spread, so a single network per realization is the right use of compute here).
+
+\begin{table}[H]\centering\small
+\caption{\MEAS{} Deep-rare EA comparison across three independent disorder realizations, one
+trained network each, \texttt{beyond}$=4$, 30 replicas per method. Realization 12345 is the
+single-network reading of Table~\ref{tab:deep} (seed 0), not the three-network pooled result.}
+\label{tab:disorder}
+\begin{tabular}{lrrr}\toprule
+Disorder realization & WE[$I_\theta$] & WE[$E$] & Fisher $p$\\\midrule
+12345 (original) & 19/30 (63.3\%) & 12/30 (40.0\%) & 0.120\\
+23456 & 15/30 (50.0\%) & 8/30 (26.7\%) & 0.110\\
+45678 & 29/30 (96.7\%) & 26/30 (86.7\%) & 0.353\\\midrule
+Pooled (3 realizations) & \textbf{63/90 (70.0\%)} & \textbf{46/90 (51.1\%)} & \textbf{0.014}\\
+\bottomrule\end{tabular}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figs/fig_deeprare.pdf}
+\caption{\MEAS{} (a) Discovery rate at \texttt{beyond}$=4$, disorder realization $12345$: open
+diamonds are the three independently trained networks of Table~\ref{tab:deep}; WE[$E$] uses the
+balanced 90-replica baseline. (b) The same comparison repeated across three independent disorder
+realizations, one network each (Table~\ref{tab:disorder}), pooled result at right. Error bars are
+Wilson $95\%$ intervals.}
+\label{fig:deeprare}
+\end{figure}
+
+No single realization is significant alone at $n=30$ --- even the original, read as a
+single-network draw rather than the three-network pooled result above, is not
+($p=0.120$; that is the expected pattern at this replica count, not a weaker result). The third
+realization presents an easier calibrated target for its particular disorder, both methods near
+ceiling, which is why its own test is the least informative of the three (a ceiling effect, not
+counter-evidence). In every one of the three realizations the learned coordinate has the higher
+discovery rate. Pooled:
+\begin{equation}
+WE[I_\theta]:\ 63/90\ (70.0\%)\quad\text{versus}\quad WE[E]:\ 46/90\ (51.1\%),\qquad p=0.014.
+\label{eq:disordergen}
+\end{equation}
+This is a different, stronger pooling axis than \S\ref{sec:deepwithin}: rather than asking
+whether the effect survives re-initializing the network on one lattice, it asks whether the
+effect is a property of the method across the disorder ensemble. Wall-clock cost ratios for the
+two new realizations ($4.45\times$ and $4.97\times$ WE[$E$]) match every other measurement in this
+project, so the cost conclusion below generalizes together with the reliability one. Read this as
+reproduced across the three realizations tested, not as a universal property of the EA spin glass
+at this scale --- $n=3$ is a small disorder ensemble.
+
+One candidate realization could not be used: its training-data collection produced zero
+bulk-anchor states (all boundary-adjacent), so the self-consistency objective's bulk boundary
+condition could never fire and training would collapse toward the trivial constant solution
+(the same degeneracy as the second Bug Log entry below, triggered here by disorder-specific
+dynamics rather than the original under-determination). Caught before any production run via a
+short collection-only diagnostic (a few minutes); the same screening is recommended before
+training on any further disorder realization.
+
+\subsection{Reliability is improved; wall-clock efficiency is not}\label{sec:costdisc}
+The spin-update cost measure gives FOM ratios of $1.29$, $1.07$, and $1.04$ against $WE[E]$ for
+the three within-disorder networks (geometric mean $1.16$, 95\% CI $[0.65,2.12]$, not excluding
+parity) --- but, as with milestoning (\S\ref{sec:milestoneresults}), that measure never charges
+for the network forward pass performed at every WE resampling step. Directly measured wall-clock
+ratios of $WE[I_\theta]$ to $WE[E]$ were $4.65$, $4.01$, $4.54$ for the three within-disorder
+networks and $4.45$, $4.97$ for the two additional disorder realizations --- consistently
+$4$--$5\times$. A two-level bootstrap resampling the native 30-replica count from the balanced
+90-replica $WE[E]$ pool, at its own measured wall-clock cost, gives
+\begin{equation}
+\mathrm{FOM}_{\rm wall}(WE[I_\theta])\big/\mathrm{FOM}_{\rm wall}(WE[E]) = 0.33,\qquad
+95\%\ \mathrm{CI}=[0.19,\,0.58],
+\label{eq:fomwall}
+\end{equation}
+below parity and excluding $1$: a statistically significant loss on cost-normalized efficiency,
+even as reliability (Eq.~\ref{eq:disordergen}) significantly improves. A separate, more heavily
+instrumented five-network ensemble at a shallower configuration showed the same effect more
+strongly still (wall-clock ratio $10.7$--$10.9\times$, $\mathrm{FOM}_{\rm wall}$ ratio
+$\approx0.087$) --- reported here only as a scaling indication, since added network capacity moves
+the cost penalty faster than it can move reliability, not as a second deep-rare measurement.
+\textbf{A coordinate can be dynamically better --- reaching the target more often --- and
+simultaneously worse per unit of wall-clock time; these are not the same axis, and this project's
+own earlier cost metric was blind to the one that matters for a real deployment.} Reducing
+inference cost (caching, batching, a smaller network) rather than improving the coordinate
+further is the binding constraint on making this practical at this scale.
 
 \subsection{FW-CADIS: real cost advantage, no flattening}
 The implementation gates clean against exact enumeration at $L=4$ (ratios within $\sim2\%$ of
@@ -1302,10 +1534,10 @@ python3 05_neural_importance/run_milestone.py --model ea --preset custom \
 \section{Bug Log}
 %==========================================================
 
-Six implementation faults are recorded. Three produced plausible-looking, internally consistent
-wrong numbers caught only by independent diagnostics; one was caught before it could affect any
-number. This is included as a section rather than a footnote because the diagnostic reasoning is
-the reusable part.
+Seven implementation and analysis faults are recorded. Four produced plausible-looking, internally
+consistent wrong numbers caught only by independent diagnostics; one was caught before it could
+affect any number. This is included as a section rather than a footnote because the diagnostic
+reasoning is the reusable part.
 
 \begin{table}[H]\centering\small
 \caption{Bugs found, in order of discovery.}
@@ -1354,7 +1586,17 @@ complete by running seed 0 twice and reproducing bit-for-bit (including full wal
 trajectory). Unlike the other faults here, this one had already produced a reported result that
 looked validated (bootstrapped, $0/10$ zero-replicas) before the second run exposed it --- the
 single most consequential catch in this project, since the original number would otherwise have
-shipped as a clean win. See \S\ref{sec:milestoneresults} for the full seed sweep.\\
+shipped as a clean win. See \S\ref{sec:milestoneresults} for the full seed sweep.\\\midrule
+Wall-clock cost-pooling mismatch
+\textcolor{red!55!black}{(headline number affected)} &
+A first attempt at the wall-clock-fair recomputation of \S\ref{sec:milestoneresults} and
+\S\ref{sec:costdisc} charged WE[$E$]'s full pooled wall-clock time against WE[$I_\theta$]'s
+native, much smaller sample --- an apples-to-oranges cost charge, not a fair like-for-like
+comparison. Surfaced by an impossible-looking $8.3\times$ ratio in the milestoning case, after a
+milder but equally wrong result (a spurious deep-rare ``reversal'') had already been drafted for
+this section and was retracted before publication. Fixed by bootstrap-resampling native-sized
+replica blocks from the larger pool at their own measured wall-clock cost, rather than charging
+the full pool's time. All wall-clock-fair numbers in this manual use the corrected method.\\
 \bottomrule\end{tabular}
 \end{table}
 
@@ -1386,10 +1628,15 @@ $\tau=4$ ``restores'' control & \textbf{withdrawn} & fails to reach target bin a
 Fixed bin ladder cheaper than adaptive & [V] & 40\% cost reduction\\
 Bin \emph{width} controls reach & \textbf{withdrawn} & controlled test: identical hit rate\\
 $I_\theta$ carries information beyond $E$ & [V] & $\Delta R^2=+0.250$ vs noise floor $0.02$\\
-Milestoning beats WE[$E$] & [O] & 17-seed two-level bootstrap CI $[0.84,1.75]$, includes 1\\
+Milestoning beats WE[$E$] (spin-update cost) & [O] & 17-seed two-level bootstrap CI $[0.84,1.75]$, includes 1\\
+Milestoning wall-clock-fair vs WE[$E$] & \textbf{negative} & CI $[0.268,0.623]$, significant loss\\
 Batched labelling $8.6\times$ faster & [E] & timing at $n=300$\\
 Frustration $49.2\%$ at seed 0 & [E] & plaquette count\\
 Self-consistency beats surrogate objective & [O] & CI includes 1; effect shrinks with $R$\\
+Self-consistency wall-clock-fair vs WE[$E$] & [O] & CI $[0.39,1.60]$, includes 1\\
+Deep-rare discovery: learned coord.\ beats WE[$E$] (within disorder) & [V] & $p=0.023$, 3 net-seeds pooled\\
+Deep-rare discovery generalizes across disorder & [V] & $p=0.014$, 3 realizations pooled\\
+Deep-rare wall-clock-fair vs WE[$E$] & \textbf{negative} & CI $[0.19,0.58]$, significant loss\\
 FW-CADIS flattens relative error & \textbf{negative} & uniform flatter at every $\alpha$\\
 FW-CADIS $\sim8\times$ cheaper & [V] & Fig.~\ref{fig:fwcadis}\\
 Any learned coordinate beats \emph{naive} outright & [O] & naive leads raw FOM in every clean run\\
@@ -1397,13 +1644,21 @@ Any learned coordinate beats \emph{naive} outright & [O] & naive leads raw FOM i
 \end{table}
 
 \subsection{What remains open}
-Whether milestoning genuinely beats WE[$E$] at all is unresolved after seventeen seeds: the point
-estimate is stably positive but modest ($\sim\!1.2\times$) across four independent bootstrap
-checkpoints, and the CI cannot be closed by seed count alone at a cost proportionate to the
-question ($\sim\!100$ seeds, $\sim$40h, to exclude 1). Whether any learned coordinate beats plain
-naive Monte Carlo outright --- rather than merely the best hand-picked coordinate --- is likewise
-unresolved: naive retains the best raw FOM in every clean comparison so far, regardless of seed.
-Whether FW-CADIS's failure to flatten is a property of this energy landscape, of the
+On the cheaper spin-update cost metric, whether milestoning genuinely beats WE[$E$] at all is
+unresolved after seventeen seeds: the point estimate is stably positive but modest
+($\sim\!1.2\times$) across four independent bootstrap checkpoints, and the CI cannot be closed by
+seed count alone at a cost proportionate to the question ($\sim\!100$ seeds, $\sim$40h, to exclude
+1). On the wall-clock-fair metric this and the deep-rare comparison are \emph{not} open --- both
+are confirmed significant losses (\S\ref{sec:milestoneresults}, \S\ref{sec:costdisc}); only the
+self-consistency-vs-WE[$E$] wall-clock comparison remains genuinely unresolved either way. Whether
+any learned coordinate beats plain naive Monte Carlo outright --- rather than merely the best
+hand-picked coordinate --- is likewise unresolved: naive retains the best raw FOM in every clean
+spin-update-cost comparison so far, regardless of seed, and no learned coordinate has been shown
+wall-clock superior to \emph{anything} in this project. The deep-rare discovery-rate improvement
+(\S\ref{sec:deepwithin}--\S\ref{sec:disordergen}) is reproduced across three independent EA
+disorder realizations, but $n=3$ is a small ensemble, and only one lattice size and temperature
+have been tested --- how the effect's magnitude varies with disorder, size, or temperature is
+open. Whether FW-CADIS's failure to flatten is a property of this energy landscape, of the
 bin/threshold parameterisation, or a general limit at this scale would need a different problem
 instance, not more replicas of this one. Push-to-scale questions --- three dimensions, larger $L$
 --- are untouched (\S\ref{sec:threed} states precisely what would change and what would not).
@@ -1427,8 +1682,8 @@ J. Stat. Phys. \textbf{123}, 503 (2006).
 Variational Autoregressive Networks}, Phys. Rev. E \textbf{111}, 034120 (2025).
 \bibitem{spanier} J. Spanier, E. M. Gelbard, \emph{Monte Carlo Principles and Neutron Transport
 Problems} (1969).
-\bibitem{kim} M. Kim, W. Cai, \emph{Accelerated MCMC via neural network-driven importance
-sampling} (2026). \textbf{[arXiv identifier requires verification before submission.]}
+\bibitem{kim} M. Kim, W. Cai, \emph{Accelerated Markov Chain Monte Carlo simulation via neural
+network-driven importance sampling}, arXiv:2602.12294 (2026).
 \bibitem{onsager1944} L. Onsager, \emph{Crystal statistics. I. A two-dimensional model with an
 order-disorder transition}, Phys. Rev. \textbf{65}, 117 (1944).
 \bibitem{talapov1996} A. L. Talapov, H. W. J. Bl\"ote, \emph{The magnetization of the 3D Ising
