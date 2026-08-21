@@ -1,0 +1,6 @@
+bulk_mean=-0.729850 extreme=-1.007812 bulk_edge=-0.568926 thresh=-1.035609
+rng_E=(np.float64(-1.0512337036132813), -0.5689263073841899)
+Running 160 new independent WE[E] replicas (base_seed=10000, jobs=7) ...
+done in 7067s
+pooled WE[E]: mean=4.9376e-05  rel_sd=0.189  FOM=5.124e-08  (170/170 positive)
+saved results_milestone_we_E_baseline_r170_pooled.json

@@ -1,0 +1,37 @@
+WE budget: n_bins=80  n_per_bin=40  we_iter=3000  we_burn=600  tau=2
+=== Stage 5: learned importance vs coordinate baselines ===
+model=ea  L=16  T=2.6 (Tc=2.269)  preset=full  replicas=30  jobs=7
+[0/2] calibrating a rare-but-reachable target ...
+   pilot saw 25,600 samples, extreme = -1.1016, bulk mean = -0.7438
+   ladder spans E/N -0.5769 -> -1.1641
+   calibrated target (4 step(s) beyond pilot extreme): E/N <= -1.1641
+   -> rarer than ~3.9e-05, so naive MC of this size should struggle or fail
+
+[1/2] learning I_theta(s) (objective=selfconsistent) ...
+   training set: 2500 configs, 126 already in the target, 392 boundary states available (392 included, capped at 70% of n_train), 538 bulk-anchor states  [161s]
+   epoch 5/20  mean self-consistency residual^2=1.993870  [1196s]
+   epoch 10/20  mean self-consistency residual^2=0.279115  [2235s]
+   epoch 15/20  mean self-consistency residual^2=0.167221  [3309s]
+   epoch 20/20  mean self-consistency residual^2=0.118317  [4406s]
+   trained ln I(s) over the training set: mean=-5.2978 sd=1.5875 range=[-7.322,-0.002]
+   saved trained net to net_disorder78901_seed0_selfconsistent.pt for reuse
+      done [4406s]
+
+[2/2] head-to-head (FOM divides out cost; costs are NOT equalised) ...
+   naive        pi=1.587e-07  rel.sd=3.806  cost=1.34e+08  FOM=5.137e-10  zero-replicas=28/30  [4558s]
+   WE[m]        pi=1.943e-07  rel.sd=2.567  cost=9.92e+08  FOM=1.530e-10  zero-replicas=24/30  [6496s]
+   WE[E]        pi=8.880e-08  rel.sd=2.782  cost=1.73e+09  FOM=7.459e-11  zero-replicas=25/30  [10243s]
+   WE[I_theta]  pi=7.975e-08  rel.sd=1.950  cost=3.08e+09  FOM=8.548e-11  zero-replicas=20/30  [27027s]
+
+--- summary (FOM relative to the Phase-2 baseline WE[m]) ---
+   naive        FOM=5.137e-10   x    3.36 vs WE[m]
+   WE[m]        FOM=1.530e-10   x    1.00 vs WE[m]
+   WE[E]        FOM=7.459e-11   x    0.49 vs WE[m]
+   WE[I_theta]  FOM=8.548e-11   x    0.56 vs WE[m]
+
+Interpretation: for 'ferro', m is already a good coordinate, so the learned map need only match it.
+For 'ea' (spin glass) m is useless -- that is where a learned importance map should win.
+NOTE: methods with zero-replicas failed to observe the event at all in some replicas;
+their FOM is not meaningful -- that IS the failure mode being demonstrated.
+
+saved results_selfconsistent_deep_disorder78901_r30_ea_L16_full_selfconsistent.json   total wall time 27027s

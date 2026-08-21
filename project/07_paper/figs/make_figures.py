@@ -401,6 +401,95 @@ def fig_prefix():
     plt.close(fig)
 
 
+# ============================================================
+# Figure: Deep-rare EA reliability (Tables tab:deep, tab:disorder,
+# secs. sec:deep, sec:disordergen in paper_V3.tex / paper_V4.tex)
+# Source: 05_neural_importance/results_selfconsistent_deep_seed{0,1,2}
+#         _r30_confirm_ea_L16_full_selfconsistent.json (within-disorder,
+#         disorder-seed=12345, verified 2026-08-20 directly against the
+#         'zeros' field of each row), results_we_E_baseline_r90_pooled.json
+#         (balanced WE[E], 44/90), results_selfconsistent_deep_disorder
+#         {23456,45678}_r30_ea_L16_full_selfconsistent.json (the two new
+#         disorder realizations). Replaces the pre-2026-08-19 version of
+#         this figure, which showed the unbalanced WE[E]=12/30 baseline
+#         (40.0%, since superseded by the balanced 44/90=48.9% throughout
+#         the text) and had no disorder-generalization panel.
+# ============================================================
+def _wilson_ci(k, n, z=1.959963985):
+    """Wilson score interval for a binomial proportion, 95% by default."""
+    if n == 0:
+        return 0.0, 0.0, 0.0
+    phat = k / n
+    denom = 1 + z**2 / n
+    center = (phat + z**2 / (2 * n)) / denom
+    half = (z / denom) * np.sqrt(phat * (1 - phat) / n + z**2 / (4 * n**2))
+    return phat, max(0.0, center - half), min(1.0, center + half)
+
+
+def fig_deeprare():
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.6, 2.9),
+                                    gridspec_kw={"width_ratios": [0.75, 1]})
+
+    # ---- panel (a): within-disorder (12345), beyond=4, R=30/method ----
+    methods_a = ["naive", "WE[$m$]", r"WE[$E$]", r"WE[$I_\theta$]"]
+    counts_a = [(1, 30), (5, 30), (44, 90), (60, 90)]
+    colors_a = [BLUE, ORANGE, AQUA, YELLOW]
+    seed_counts = [(19, 30), (20, 30), (21, 30)]  # the 3 individual networks
+
+    x = np.arange(len(methods_a))
+    for xi, (k, n), c in zip(x, counts_a, colors_a):
+        phat, lo, hi = _wilson_ci(k, n)
+        ax1.bar(xi, 100 * phat, width=0.6, color=c, zorder=3)
+        ax1.errorbar(xi, 100 * phat, yerr=[[100 * (phat - lo)], [100 * (hi - phat)]],
+                      fmt="none", ecolor=INK, elinewidth=1.1, capsize=3, zorder=4)
+    seed_x = x[-1]
+    for k, n in seed_counts:
+        ax1.scatter(seed_x, 100 * k / n, marker="D", s=22, facecolor="white",
+                     edgecolor=INK, linewidth=1.0, zorder=5)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(methods_a, fontsize=8)
+    ax1.set_ylabel("event-positive replicas (%)")
+    ax1.set_ylim(0, 100)
+    style_axes(ax1)
+    ax1.set_title("(a) one disorder, 3 networks\n"
+                   r"$66.7\%$ vs. $48.9\%$, $p=0.023$", fontsize=8)
+
+    # ---- panel (b): across 3 independent disorder realizations, 1 network each ----
+    disorders = ["12345", "23456", "45678", "56789", "67890", "78901", "pooled"]
+    we_e = [(12, 30), (8, 30), (26, 30), (15, 30), (29, 30), (5, 30), (95, 180)]
+    we_i = [(19, 30), (15, 30), (29, 30), (20, 30), (28, 30), (10, 30), (121, 180)]
+
+    xb = np.arange(len(disorders))
+    w = 0.36
+    for i, (xi, (ke, ne), (ki, ni)) in enumerate(zip(xb, we_e, we_i)):
+        pe, le, he = _wilson_ci(ke, ne)
+        pi_, li, hi_ = _wilson_ci(ki, ni)
+        ax2.bar(xi - w / 2, 100 * pe, width=w, color=AQUA, zorder=3,
+                 label=r"WE[$E$]" if i == 0 else None)
+        ax2.errorbar(xi - w / 2, 100 * pe, yerr=[[100 * (pe - le)], [100 * (he - pe)]],
+                      fmt="none", ecolor=INK, elinewidth=1.0, capsize=2.5, zorder=4)
+        ax2.bar(xi + w / 2, 100 * pi_, width=w, color=YELLOW, zorder=3,
+                 label=r"WE[$I_\theta$]" if i == 0 else None)
+        ax2.errorbar(xi + w / 2, 100 * pi_, yerr=[[100 * (pi_ - li)], [100 * (hi_ - pi_)]],
+                      fmt="none", ecolor=INK, elinewidth=1.0, capsize=2.5, zorder=4)
+    ax2.axvline(xb[-1] - 0.5, color=BASELINE, lw=0.9, ls=":", zorder=1)
+    ax2.set_xticks(xb)
+    ax2.set_xticklabels(disorders, fontsize=7, rotation=20)
+    ax2.set_ylim(0, 105)
+    ax2.legend(loc="upper left", handlelength=1.2, fontsize=7)
+    style_axes(ax2)
+    ax2.set_title("(b) 6 disorders, 1 network each\n"
+                   r"$67.2\%$ vs. $52.8\%$, $p=0.0071$", fontsize=8)
+
+    fig.suptitle(r"Deep-rare EA discovery rate ($L{=}16$, $\mathrm{beyond}{=}4$): "
+                 "error bars are Wilson 95% intervals; diamonds in (a) are the "
+                 "3 individual trained networks",
+                 fontsize=8, y=1.06)
+    fig.tight_layout()
+    fig.savefig(HERE / "fig_deeprare.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_lscaling()
     print("fig_lscaling.pdf done")
@@ -413,3 +502,5 @@ if __name__ == "__main__":
           f"sc/WE[E] {m2:.2f} [{l2:.2f},{h2:.2f}])")
     fig_prefix()
     print("fig_prefix.pdf done")
+    fig_deeprare()
+    print("fig_deeprare.pdf done (regenerated with corrected + disorder-generalization numbers)")

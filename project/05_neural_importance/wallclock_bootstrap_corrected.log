@@ -1,0 +1,15 @@
+======================================================================
+DEEP-RARE beyond=4 (corrected)
+======================================================================
+WE[E] native (R=30) wall_time, mean of 3 measurements: 4020s
+CORRECTED (native-size draws from larger pool, native cost): median=0.331  95% CI=[0.191,0.576]  N=10000
+excludes 1.0? YES
+
+======================================================================
+MILESTONING beyond=1 (corrected)
+======================================================================
+WE[E] native (R=10) wall_time, mean of 16 measurements: 397s
+CORRECTED (native-size draws from larger pool, native cost): median=0.405  95% CI=[0.268,0.623]  N=10000
+excludes 1.0? YES
+
+(sanity) pooled-sample rel_sd if we DON'T touch cost: using full 170 array's rel_sd=0.189 at native cost 397s would give an inconsistent hybrid -- NOT done above, noted only to show why block-resampling at native R is the right call instead.

@@ -1,0 +1,47 @@
+seed0   : WE[I_theta] wall_time=   1217s  hits=10/10   WE[E] wall_time=   388s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=2.121
+seed1   : WE[I_theta] wall_time=   1423s  hits=10/10   WE[E] wall_time=   426s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.734
+seed2   : WE[I_theta] wall_time=   1243s  hits=10/10   WE[E] wall_time=   386s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.104
+seed3   : WE[I_theta] wall_time=   1208s  hits=10/10   WE[E] wall_time=   388s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.543
+seed4   : WE[I_theta] wall_time=   1220s  hits=10/10   WE[E] wall_time=   389s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=2.091
+seed5   : WE[I_theta] wall_time=   2589s  hits=10/10   WE[E] wall_time=   407s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.816
+seed6   : WE[I_theta] wall_time=   1206s  hits=10/10   WE[E] wall_time=   389s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.556
+seed7   : WE[I_theta] wall_time=   1216s  hits=10/10   WE[E] wall_time=   388s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.481
+seed8   : WE[I_theta] wall_time=   1228s  hits=10/10   WE[E] wall_time=   387s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.864
+seed9   : WE[I_theta] wall_time=   1219s  hits=10/10   WE[E] wall_time=   388s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.342
+seed10  : WE[I_theta] wall_time=   1229s  hits=10/10   WE[E] wall_time=   387s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.388
+seed11  : WE[I_theta] wall_time=   1339s  hits=10/10   WE[E] wall_time=   389s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.826
+seed12  : WE[I_theta] wall_time=   1306s  hits=10/10   WE[E] wall_time=   438s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.655
+seed13  : WE[I_theta] wall_time=   1246s  hits=10/10   WE[E] wall_time=   399s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.510
+seed14  : WE[I_theta] wall_time=   1217s  hits=10/10   WE[E] wall_time=   399s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=1.604
+seed15  : WE[I_theta] wall_time=   1259s  hits=10/10   WE[E] wall_time=   398s (fixed 10-replica baseline, re-measured)  MC-cost ratio(I/E)=0.630
+
+WE[E] 10-replica wall_time across 16 confirm runs: mean=397s (range 386-438s)
+WE[E] 170-replica pooled wall_time = 397s (10, mean) + 7067s (new 160) = 7464s
+
+WE[E] pooled (n=170): rel_sd=0.189  mean=4.938e-05  wall-clock FOM=3.742e-03
+
+Per-seed point ratios (I_theta / balanced-170 E), wall-clock-fair basis:
+  seed0   : wall_time_ratio(I/E, vs 10-rep mean)=3.067x  ratio(I/balanced-E)=13.557
+  seed1   : wall_time_ratio(I/E, vs 10-rep mean)=3.586x  ratio(I/balanced-E)=4.016
+  seed2   : wall_time_ratio(I/E, vs 10-rep mean)=3.134x  ratio(I/balanced-E)=7.008
+  seed3   : wall_time_ratio(I/E, vs 10-rep mean)=3.045x  ratio(I/balanced-E)=3.487
+  seed4   : wall_time_ratio(I/E, vs 10-rep mean)=3.075x  ratio(I/balanced-E)=13.371
+  seed5   : wall_time_ratio(I/E, vs 10-rep mean)=6.526x  ratio(I/balanced-E)=5.406
+  seed6   : wall_time_ratio(I/E, vs 10-rep mean)=3.041x  ratio(I/balanced-E)=10.026
+  seed7   : wall_time_ratio(I/E, vs 10-rep mean)=3.065x  ratio(I/balanced-E)=3.076
+  seed8   : wall_time_ratio(I/E, vs 10-rep mean)=3.095x  ratio(I/balanced-E)=11.884
+  seed9   : wall_time_ratio(I/E, vs 10-rep mean)=3.074x  ratio(I/balanced-E)=8.691
+  seed10  : wall_time_ratio(I/E, vs 10-rep mean)=3.098x  ratio(I/balanced-E)=8.832
+  seed11  : wall_time_ratio(I/E, vs 10-rep mean)=3.376x  ratio(I/balanced-E)=4.913
+  seed12  : wall_time_ratio(I/E, vs 10-rep mean)=3.291x  ratio(I/balanced-E)=3.876
+  seed13  : wall_time_ratio(I/E, vs 10-rep mean)=3.141x  ratio(I/balanced-E)=9.472
+  seed14  : wall_time_ratio(I/E, vs 10-rep mean)=3.069x  ratio(I/balanced-E)=10.231
+  seed15  : wall_time_ratio(I/E, vs 10-rep mean)=3.173x  ratio(I/balanced-E)=3.945
+
+Geometric mean of 16 point ratios (vs balanced 170-replica E): 6.775
+
+Two-level bootstrap (measured wall_time, balanced 170-replica E baseline):
+  median=8.301  95% CI=[5.899,12.018]  N=10000
+  excludes 1.0? YES
+
+(For comparison, measured wall_time but UNBALANCED fixed-10 E baseline: median=0.472  95% CI=[0.324,0.691])

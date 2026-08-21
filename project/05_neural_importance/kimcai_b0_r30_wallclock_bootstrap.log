@@ -1,0 +1,6 @@
+WE[I_theta]: hits=29/30  wall_time=354.0s  FOM_wc=9.988e-03
+WE[E]:       hits=30/30  wall_time=218.3s  FOM_wc=1.275e-02
+wall_time ratio I/E = 1.622x
+point wall-clock-fair FOM ratio = 0.783
+bootstrap (measured wall_time, N=10000): median=0.782  95% CI=[0.392,1.599]
+excludes 1.0? NO

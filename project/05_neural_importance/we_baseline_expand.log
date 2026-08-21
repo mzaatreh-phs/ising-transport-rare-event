@@ -1,0 +1,5 @@
+bulk_edge=-0.567496  rng_E=(-1.134625, -0.5674956120911451)
+Running 60 new independent WE[E] replicas (base_seed=50000, jobs=7) ...
+done in 7549s
+pooled WE[E]: 44/90 event-positive (48.9%), rel_sd=1.540, FOM=2.520e-10
+saved results_we_E_baseline_r90_pooled.json

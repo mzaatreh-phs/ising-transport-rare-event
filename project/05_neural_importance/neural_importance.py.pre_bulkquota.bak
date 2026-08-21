@@ -407,22 +407,8 @@ def train_importance_selfconsistent(L, T, Jx, Jy, model, thresh, cfg, seed=0,
             n_boundary = int(boundary_mask.sum())
 
     if len(X_pool) > cfg["n_train"] and n_boundary > 0:
-        b_idx_all = np.where(boundary_mask)[0]
+        b_idx = np.where(boundary_mask)[0]
         o_idx = np.where(~boundary_mask)[0]
-        # Cap boundary-state inclusion at 70% of n_train so bulk-anchor
-        # states always get a guaranteed minimum share of the training set.
-        # Taking ALL boundary states unconditionally (previous behaviour)
-        # left zero room for bulk whenever the raw boundary count alone
-        # exceeded n_train, which silently broke the second boundary
-        # condition regardless of how many bulk states existed in the wider
-        # collection pool -- found 2026-08-21 via disorder-seeds 34567 and
-        # 67890, both of which had abundant bulk states in their raw pool
-        # (verified separately) but zero in the final training set.
-        max_boundary = int(cfg["n_train"] * 0.7)
-        if len(b_idx_all) > max_boundary:
-            b_idx = rng.choice(b_idx_all, size=max_boundary, replace=False)
-        else:
-            b_idx = b_idx_all
         n_other = max(0, cfg["n_train"] - len(b_idx))
         pick_other = rng.choice(o_idx, size=min(n_other, len(o_idx)), replace=False)
         X = X_pool[np.concatenate([b_idx, pick_other])]
@@ -444,10 +430,8 @@ def train_importance_selfconsistent(L, T, Jx, Jy, model, thresh, cfg, seed=0,
         bulk_prog = float(np.quantile(prog, 0.2))     # fallback: bottom 20%
     bulk_mask = (prog <= bulk_prog) & ~in_tgt
     if verbose:
-        n_boundary_included = min(n_boundary, int(cfg["n_train"] * 0.7))
         print(f"   training set: {len(X)} configs, {int(in_tgt.sum())} already in "
-              f"the target, {n_boundary} boundary states available "
-              f"({n_boundary_included} included, capped at 70% of n_train)"
+              f"the target, {n_boundary} boundary-anchor states force-included"
               f"{' (needed a longer collection pass)' if retried else ''}, "
               f"{int(bulk_mask.sum())} bulk-anchor states  [{time.time()-t0:.0f}s]")
         if n_boundary == 0:

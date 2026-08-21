@@ -1,0 +1,23 @@
+seed0: WE[I_theta] wall_time=17346s  hits=19/30   WE[E] wall_time=3734s (fixed 30-replica baseline, re-measured)
+seed1: WE[I_theta] wall_time=17578s  hits=20/30   WE[E] wall_time=4382s (fixed 30-replica baseline, re-measured)
+seed2: WE[I_theta] wall_time=17924s  hits=21/30   WE[E] wall_time=3945s (fixed 30-replica baseline, re-measured)
+
+WE[E] 30-replica wall_time across 3 confirm runs: [3733.8948328495026, 4382.441803455353, 3944.7251675128937] -> mean=4020s
+WE[E] 90-replica pooled wall_time = 4020s (30, mean) + 7549s (new 60) = 11569s
+
+WE[E] pooled (n=90): hits=44/90  rel_sd=1.540  wall-clock FOM=3.645e-05
+
+Per-seed point ratios (I_theta / balanced-90 E), wall-clock-fair basis:
+  seed0: wall_time_ratio(I/E)=4.314x  FOM_wc(I)=3.731e-05  ratio(I/balanced-E)=1.024
+  seed1: wall_time_ratio(I/E)=4.372x  FOM_wc(I)=3.189e-05  ratio(I/balanced-E)=0.875
+  seed2: wall_time_ratio(I/E)=4.458x  FOM_wc(I)=3.106e-05  ratio(I/balanced-E)=0.852
+
+Geometric mean of 3 point ratios (vs balanced 90-replica E): 0.914
+
+Two-level bootstrap (measured wall_time, balanced 90-replica E baseline):
+  median=0.940  95% CI=[0.608,1.440]  N=10000
+  excludes 1.0? NO
+
+Reliability: WE[I_theta] pooled 60/90 (66.7%) vs WE[E] balanced 44/90 (48.9%)
+  Fisher exact p (balanced 90 vs 90) = 0.0233
+  Fisher exact p (original, imbalanced 90 vs 30, for reference) = 0.0170
