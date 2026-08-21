@@ -51,47 +51,16 @@ Visualization, Writing -- original draft, Writing -- review \& editing}
 
 % ---- Abstract --------------------------------------------------------------
 \begin{abstract}
-Rare-event sampling requires computational effort to be concentrated in configurations that
-disproportionately determine a target probability. Radiation transport addresses this through
-adjoint importance functions and weight-window population control, and this work transfers
-that toolkit to rare-event sampling in lattice spin systems, using the shared
-backward-conditioning structure of the transport adjoint and the transition-path committor. A
-solvable birth--death process reproduces the zero-variance limit of exact importance, and
-enumeration of a $4\times4$ lattice confirms that weight-conserving Weighted Ensemble (WE)
-resampling is unbiased for any binning coordinate. At matched spin-update cost and full
-replication ($R=20$), WE and naive sampling resolve the $L=20$ Ising magnetization tail to
-comparable depth, with WE holding a modest, roughly two-fold precision advantage at the single
-deepest bin either method reaches. For the
-frustrated Edwards--Anderson spin glass, a self-consistency-trained neural coordinate acting on
-the full spin configuration bins the weighted population. Across six independent disorder
-realizations with one trained network each, the deepest calibrated target is reached in $121$
-of $180$ replicas ($67.2\%$) against $95/180$ ($52.8\%$) for the energy-binned coordinate.
-A disorder-stratified Cochran--Mantel--Haenszel analysis gives a common odds ratio of $2.33$
-($95\%$ CI $[1.40,3.88]$, $p=0.0011$); the same reliability advantage also appears within a
-single realization across three independently trained networks compared against a matched-size
-baseline ($66.7\%$ versus $48.9\%$, Fisher exact $p=0.023$). That improvement is one of
-reliability rather than wall-clock efficiency. Repeated neural inference costs four to five
-times the wall-clock time of the energy coordinate, so the directly measured figure of merit
-sits at roughly one-third of parity ($0.33$, $95\%$ CI $[0.19,0.58]$). These results support
-the transfer of the tested transport-inspired framework and show that the reliability advantage
-extends beyond a single quenched-disorder realization. At the tested scale, neural inference
-overhead is the dominant measured barrier to wall-clock competitiveness.
+Rare-event sampling requires concentrating computation in configurations that disproportionately determine a target probability. Radiation transport addresses this problem with adjoint importance functions and weight-window population control; this study transfers that viewpoint to lattice spin systems through the backward-conditioning structure of transport adjoints and committors. A solvable birth--death process reproduces the zero-variance limit of exact importance, and enumeration of a $4\times4$ lattice confirms unbiased Weighted Ensemble (WE) resampling across tested coordinates. At matched spin-update cost with $R=20$ replicas, WE and naive sampling resolve the $L=20$ Ising magnetization tail to the same depth; naive sampling is more precise through most of the tail, whereas WE has an approximately two-fold advantage at the deepest bin. For the Edwards--Anderson spin glass, a self-consistency-trained neural coordinate acting on the full configuration is used only for WE binning. Across six independent disorder realizations, the deepest calibrated target is reached in $121/180$ learned-coordinate replicas ($67.2\%$) versus $95/180$ energy-binned replicas ($52.8\%$). A disorder-stratified Cochran--Mantel--Haenszel analysis gives a common odds ratio of $2.33$ ($95\%$ CI $[1.40,3.88]$, $p=0.0011$), with the same direction reproduced across three independently trained networks within one realization. The gain is reliability rather than wall-clock efficiency: neural inference requires four to five times the wall-clock time of the energy coordinate, yielding a figure-of-merit ratio of $0.33$ ($95\%$ CI $[0.19,0.58]$). These results validate the tested transport-inspired framework and show that learned configuration-space information improves deep-target access across quenched disorder.
 \end{abstract}
 
 % ---- Highlights ------------------------------------------------------------
 \begin{highlights}
-\item Adjoint importance and the rare-event committor share the same backward-conditioning
-structure and coincide for the unit-response absorbing-target problem studied here.
-\item Exact tests validate both the zero-variance importance limit and unbiased WE population
-control.
-\item At matched update cost and full replication ($R=20$), WE holds an approximately
-two-fold precision advantage over naive sampling at the deepest resolved Ising-tail bin,
-though not uniformly across the tail.
-\item Learned importance improves deep-event discovery across six independent
-Edwards--Anderson disorder realizations ($67.2\%$ versus $52.8\%$; stratified odds ratio $2.33$,
-$p=0.0011$).
-\item The reliability improvement does not yet translate into wall-clock efficiency
-($0.33$, $95\%$ CI $[0.19,0.58]$).
+\item Adjoint importance and committors share a backward-conditioning structure.
+\item Exact tests recover zero variance and validate unbiased WE resampling.
+\item WE gains precision only at the deepest resolved Ising-tail bin.
+\item Learned importance improves deep-target discovery across six EA disorders.
+\item Neural inference cost prevents a wall-clock efficiency gain at tested scale.
 \end{highlights}
 
 % ---- Keywords --------------------------------------------------------------
@@ -382,7 +351,7 @@ lattice steps (spacing $2/L^2$ for magnetization, $4/L^2$ for EA energy per spin
 ``beyond'' records how many such steps the target is displaced past the pilot extreme; it
 provides an operational depth scale, without claiming that equal values of ``beyond''
 correspond to identical probabilities across different system sizes or disorder realizations.
-The resampling interval is treated as a physical parameter rather than a bookkeeping choice.
+The resampling interval is treated as a dynamically consequential algorithmic parameter rather than a bookkeeping choice.
 Independent diagnostics in the EA model show rapid relaxation of deep configurations, so
 shorter resampling intervals penetrate the deep ladder more effectively at comparable cost;
 the production deep-rare calculation uses $\tau=2$ for this reason.
@@ -585,7 +554,7 @@ method. At the second-deepest resolved bin ($|m|=0.886$), naive sampling is in f
 precise of the two at matched cost: relative standard deviation $0.36$ against WE's $0.79$, a
 figure-of-merit advantage for naive of roughly $5\times$. Only at the single deepest bin
 reached by either method ($|m|=0.932$, $P\approx1.1\times10^{-7}$ for WE against
-$P\approx7.4\times10^{-8}$ for naive) does WE hold an edge, with a figure of merit about
+$P\approx7.4\times10^{-8}$ for naive) does WE hold an edge, with a figure of merit approximately
 $2\times$ that of naive (relative standard deviation $3.10$ versus $4.47$); both estimates are
 individually noisy at this depth.
 
@@ -598,14 +567,13 @@ the correctness of the WE implementation.
 
 \begin{figure}[tbp]
 \centering
-\includegraphics[width=\linewidth]{figs/fig_tail.pdf}
+\includegraphics[width=\linewidth]{figs/fig_tail_revised.pdf}
 \caption{$L=20$ Ising magnetization tail at matched spin-update cost, $R=20$ independent
-replicas per method. (a) Rate function $-\frac{1}{N}\ln P(|m|)$; the shaded band is $\pm1$
-standard deviation over the $20$ WE replicas. Both methods resolve the tail to the identical
-deepest bin, $|m|=0.932$. (b) Relative error of $\hat P(|m|)$ across replicas on a log scale:
-naive sampling stays lower through most of the tail, then degrades sharply once it approaches
-its support boundary, whereas WE degrades more gradually and holds the lower relative error
-only at the single deepest bin.}
+replicas per method. (a) $P(|m|)$ on a log scale: the WE and naive curves are visually
+indistinguishable through the bulk and near tail, and both resolve the tail to the identical
+deepest bin, $|m|=0.932$. (b) Across-replica relative standard deviation of $\hat P(|m|)$ on a
+log scale: naive sampling holds the lower (better) relative s.d.\ through most of the tail, and
+only WE becomes more precise at the single deepest bin, annotated directly on the plot.}
 \label{fig:tail}
 \end{figure}
 
@@ -676,7 +644,7 @@ comparison, giving $44/90$ ($48.9\%$) against the pooled learned-coordinate resu
 \WE[I_\theta]:\ 60/90\ (66.7\%)\quad\text{versus}\quad\WE[E]:\ 44/90\ (48.9\%),\qquad p=0.023.
 \label{eq:withinp}
 \end{equation}
-This is the central within-disorder result: the learned importance map significantly increases
+This is the central within-disorder result: the learned importance map increases
 the probability that a finite-budget WE run reaches the deep target, reproducibly across three
 independent initializations.
 
@@ -925,11 +893,12 @@ limitation on wall-clock efficiency.
 % ============================================================================
 \section*{Data and Code Availability}
 The code, input data, trained network weights, quenched disorder realizations, per-replica
-outputs, validation data, and wall-clock records required to reproduce the reported results have
-been assembled into an archival package. A persistent public repository DOI will be inserted
-before final submission. The package also records the software environment, configuration files,
-and random seeds used for the production calculations so that the reported analyses can be
-reproduced under the archived environment.
+outputs, validation data, and wall-clock records required to reproduce the reported results are
+available at \url{https://github.com/mzaatreh-phs/ising-transport-rare-event}. The repository
+also records the software environment, configuration files, and random seeds used for the
+production calculations so that the reported analyses can be reproduced under the archived
+environment.
+% Optional author action before submission: add a versioned archival DOI here after depositing the repository in Zenodo.
 
 \section*{Acknowledgements}
 The author gratefully acknowledges the support of Fahad Bin Sultan University, Tabuk, Saudi
@@ -937,9 +906,9 @@ Arabia, including access to the computational environment used for the numerical
 
 \printcredits
 
-% TODO before submission: insert an author-confirmed Declaration of competing interest if
-% required by the target journal. No statement is inserted automatically here because it is an
-% author declaration and must not be inferred.
+\section*{Declaration of competing interest}
+The author declares no known competing financial interests or personal relationships that
+could have appeared to influence the work reported in this paper.
 
 \section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
 During the preparation of this work, the author used ChatGPT (OpenAI) and Claude (Anthropic)
