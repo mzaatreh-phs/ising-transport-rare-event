@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 project/venv/
 project/.label_cache/
+project/**/.label_cache/
 
 # LaTeX build artifacts (scoped so run_all_*.log experiment logs aren't excluded)
 *.aux
