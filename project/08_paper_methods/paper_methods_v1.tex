@@ -1,0 +1,614 @@
+%% ============================================================================
+%% Elsevier CAS single-column manuscript
+%% Three diagnostics for trustworthy claims in neural-coordinate WE sampling
+%%
+%% Build: pdflatex x2 (no external .bib; thebibliography is inline)
+%% Requires: cas-sc.cls (Elsevier CAS bundle)
+%% ============================================================================
+
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{enumitem}
+
+\setlist{itemsep=2pt,topsep=3pt}
+\newcommand{\WE}{\mathrm{WE}}
+\newcommand{\FOM}{\mathrm{FOM}}
+\RenewDocumentCommand{\printorcid}{}{}
+
+\begin{document}
+\restylefloat{figure}
+\restylefloat{table}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+
+\shorttitle{Three diagnostics for neural-coordinate WE sampling claims}
+\shortauthors{M.Y. Alzaatreh and H. Alsenawe}
+
+\title[mode=title]{Three Diagnostics for Trustworthy Efficiency and Reliability
+Claims in Neural-Coordinate Weighted Ensemble Sampling}
+
+\author{M.Y. Alzaatreh}
+\cormark[1]
+\ead{mzaatreh@fbsu.edu.sa}
+\credit{Conceptualization, Methodology, Software, Formal analysis, Investigation,
+Data curation, Writing -- original draft}
+
+\affiliation{organization={Natural Sciences Unit, Fahad Bin Sultan University},
+            city={Tabuk},
+            country={Saudi Arabia}}
+
+\author{H. Alsenawe}
+\credit{Validation, Writing -- review \& editing}
+
+\affiliation{organization={Fahad Bin Sultan University},
+            city={Tabuk},
+            country={Saudi Arabia}}
+
+\cortext[1]{Corresponding author}
+
+% ---- Abstract --------------------------------------------------------------
+\begin{abstract}
+Reports of machine-learning-accelerated Monte Carlo methods commonly compare a
+learned sampling coordinate against a hand-picked baseline using a single
+point-estimate figure of merit (FOM), often computed from simulation-sweep
+cost alone and from a single trained network. We show, using a Weighted
+Ensemble (WE) rare-event sampler for Ising and Edwards--Anderson spin systems
+as a fully worked case study, that this practice can produce headline claims
+that do not survive three inexpensive diagnostic checks. First, a one-way
+variance decomposition of a 17-network ensemble shows that the entire
+apparent seed-to-seed spread in a published efficiency ratio is attributable
+to finite-replica sampling noise, not to genuine network-initialization
+variance; the between-seed variance component is exactly zero after
+correction. Second, an unseeded random network initializer silently reversed
+a training-objective comparison's headline result from a $+14\%$ win to a
+$-17\%$ loss between two runs of an identical configuration; once seeded and
+swept over 17 initializations, the comparison's own natural extensions
+(finer binning, larger sampling budget) both independently fail to help the
+learned coordinate, and the properly cost-corrected verdict is a significant
+loss (FOM ratio $0.405$, 95\% CI $[0.268,0.623]$) rather than the
+inconclusive result obtained from simulation-sweep cost alone. Third, we
+summarize a companion result in which charging a learned coordinate's real
+wall-clock inference cost, rather than its simulation-sweep cost, converts
+an apparently favorable comparison into a $\sim$3--5$\times$ efficiency loss.
+None of the three findings required new expensive computation to obtain --
+each reused already-collected simulation output and cost between minutes and
+a few hours of additional analysis. We package the three checks as a short,
+concrete audit checklist for reporting learned-coordinate rare-event sampling
+results, and argue that it should precede, not follow, any point-estimate
+efficiency or reliability claim.
+\end{abstract}
+
+% ---- Highlights ------------------------------------------------------------
+\begin{highlights}
+\item A 17-seed variance decomposition shows an ensemble's seed-to-seed
+spread is entirely finite-replica noise, not network-initialization
+variance.
+\item An unseeded network initializer silently reversed a headline
+efficiency claim between two identical reruns.
+\item Two independently tested schedule extensions (finer binning, larger
+sampling budget) both fail to rescue the learned coordinate once the
+seeding bug is fixed.
+\item Charging real wall-clock inference cost, not simulation-sweep cost,
+reverses an efficiency comparison for a companion coordinate on the same
+system.
+\item We propose a three-item audit checklist requiring no new expensive
+simulation, only reanalysis of data already collected.
+\end{highlights}
+
+% ---- Keywords --------------------------------------------------------------
+\begin{keywords}
+Rare-event sampling \sep Weighted Ensemble \sep variance decomposition \sep
+reproducibility \sep neural importance sampling \sep Ising model \sep spin
+glass \sep figure of merit
+\end{keywords}
+
+\maketitle
+
+% ============================================================================
+\section{Introduction}\label{sec:intro}
+
+Machine-learning-accelerated Monte Carlo methods are increasingly proposed as
+replacements or supplements for hand-designed importance functions in
+rare-event sampling, from neural bias potentials~\citep{hua2024} to
+label-free self-consistency training~\citep{kimcai2026} to
+committor-network approaches for transition-path
+problems~\citep{khoo2019,li2022,kang2024,trizio2025}. A typical claim in this
+literature has the shape: ``coordinate $A$ (learned) outperforms coordinate
+$B$ (hand-picked) by $X\%$ on figure of merit $Y$,'' supported by one or a
+handful of runs of each method.
+
+This paper does not propose a new sampling method. Instead, using a Weighted
+Ensemble (WE) rare-event sampler for Ising and Edwards--Anderson spin systems
+as a fully instrumented case study, we show that three inexpensive
+diagnostic checks -- none requiring new expensive simulation -- can change
+the verdict of exactly this kind of claim, in one case reversing its sign
+entirely. The case study is a companion project to a physics-focused paper
+reporting a validated transport-inspired learned coordinate for the same
+system~\citep{alzaatreh2026}; the present paper is methodological, focused on
+comparisons made and abandoned during that project's development, together
+with an audit of a currently used component of it.
+
+The three diagnostics are:
+
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{Decompose seed-to-seed variance before ensembling to reduce
+it.} An observed spread across independently initialized networks can be
+mostly or entirely replica-sampling noise rather than genuine
+initialization variance, in which case ensembling several networks pays real
+inference cost to cancel a source of variance that is not there
+(\S\ref{sec:diag1}).
+\item \textbf{Audit random-seed control, and check that natural schedule
+extensions do not silently rescue a negative result.} An unseeded
+initializer can make a single comparison's sign arbitrary; once fixed, a
+result should be checked against the schedule knobs a reviewer would
+naturally ask about, with the mechanism of any failure identified, not just
+its outcome (\S\ref{sec:diag2}).
+\item \textbf{Charge a learned coordinate's real wall-clock cost, not its
+simulation-sweep cost.} A cost accounting restricted to Monte Carlo sweeps is
+blind to repeated network inference, which can dominate wall-clock time and
+reverse an efficiency verdict (\S\ref{sec:diag3}, summarizing a companion
+result).
+\end{enumerate}
+
+Each diagnostic is demonstrated on real data from the same project, using
+methods (ANOVA-style variance decomposition, paired reruns, bootstrap
+confidence intervals) that are standard but, in our reading of the recent
+neural-importance-sampling literature, not yet routinely applied together
+before a headline claim is reported. \S\ref{sec:checklist} distills the three
+diagnostics into a short checklist and discusses when each is worth the
+(small) additional analysis cost it requires.
+
+% ============================================================================
+\section{Case-study system}\label{sec:system}
+
+The case study is a Weighted Ensemble (WE) sampler~\citep{huber1996,
+zhang2010,zuckerman2017} targeting deep magnetization or energy tails of the
+two-dimensional Ising ferromagnet and the Edwards--Anderson (EA) spin
+glass~\citep{ising1925,edwards1975} on $L\times L$ lattices, with a learned
+neural coordinate used to bin walkers during resampling. Two distinct
+training objectives for the learned coordinate were developed over the
+course of the project: a \emph{surrogate-label} objective, in which a
+network is trained to regress a milestoning-style progress label collected
+from pilot trajectories, and a \emph{self-consistency} objective following
+Kim and Cai~\citep{kimcai2026}, in which the network is trained without
+labels via a harmonic backward-equation residual. The companion physics
+paper~\citep{alzaatreh2026} reports validated results for the
+self-consistency objective, including a disorder-stratified reliability gain
+and its associated wall-clock cost.
+
+The present paper does not use the self-consistency results. It instead
+examines two lines of analysis internal to the same project that never
+appeared in the companion paper: an ensemble-variance investigation
+conducted on the surrogate-label objective's 17-seed sweep
+(\S\ref{sec:diag1}--\S\ref{sec:diag2}), and, briefly, the companion paper's
+wall-clock cost correction viewed as a third instance of the same general
+problem (\S\ref{sec:diag3}). We refer readers to~\citep{alzaatreh2026} for
+the full derivation of the WE estimator, the adjoint/committor
+correspondence motivating the learned coordinate, and the self-consistency
+training procedure; only the details needed to follow the diagnostics below
+are repeated here.
+
+For a WE run with replicas $R$, the figure of merit used throughout is
+\begin{equation}
+\FOM = \frac{1}{\mathrm{rel.sd}^2 \cdot \mathrm{cost}},
+\end{equation}
+where $\mathrm{rel.sd}$ is the relative standard deviation of the estimated
+target probability $\hat\pi$ across replicas and $\mathrm{cost}$ is a
+per-replica computational cost. The central point of this paper is that
+\emph{which} cost enters this denominator -- simulation sweeps only, or
+total wall-clock time including network inference -- is itself a
+methodological choice that can change the sign of a comparison
+(\S\ref{sec:diag3}).
+
+% ============================================================================
+\section{Diagnostic 1: decompose variance before ensembling}\label{sec:diag1}
+
+\subsection{Motivation}
+
+A common response to noisy learned-coordinate results is to train several
+independently initialized networks and pool or ensemble their outputs, on
+the assumption that network-to-network variability is a meaningful source of
+noise worth averaging over. This assumption is testable, and testing it is
+cheap relative to the cost of training and running the extra networks.
+
+\subsection{Method}
+
+For $S$ independently trained networks (``seeds''), each evaluated with $R$
+replicas of the downstream WE comparison, let $x_s = \log(\FOM_{I,s} /
+\FOM_{E,s})$ denote the log figure-of-merit ratio of the learned coordinate
+$I_\theta$ against the energy-binned baseline $E$ for seed $s$. The observed
+across-seed variance,
+\begin{equation}
+V_{\text{across}} = \frac{1}{S-1}\sum_{s=1}^{S} (x_s - \bar x)^2,
+\end{equation}
+confounds two sources: genuine between-seed (initialization) variance
+$V_{\text{between}}$, and within-seed variance $V_{\text{within}}$ arising
+from the finite replica count $R$ used to estimate each $x_s$. A one-way
+random-effects decomposition estimates the within-seed component directly,
+by bootstrap-resampling each seed's own $R$ replicas independently ($10^4$
+resamples per seed in this analysis), and obtains the between-seed component
+by subtraction, floored at zero:
+\begin{equation}
+V_{\text{between}} = \max\!\big(0,\; V_{\text{across}} - \overline{V_{\text{within}}}\big).
+\end{equation}
+
+\subsection{Result}
+
+Applied to the project's 17-seed sweep of the surrogate-label coordinate at
+a fixed rarity depth ($R=10$ replicas per seed): $V_{\text{across}} =
+0.2447$ ($\mathrm{sd}=0.495$), while the mean within-seed variance is
+$\overline{V_{\text{within}}} = 0.3603$ ($\mathrm{sd}=0.600$) --
+\emph{larger} than the raw across-seed variance itself. The subtraction
+therefore floors exactly at $V_{\text{between}} = 0$ (Table~\ref{tab:anova}).
+In other words, every seed's own individual measurement is already noisier
+than the spread between seeds' point estimates; the apparent
+seed-dependence of the published ratio is consistent with being 100\%
+sampling noise, with no detectable contribution from network
+initialization.
+
+\begin{table}[h]
+\centering
+\caption{One-way variance decomposition of the log figure-of-merit ratio
+$\log(\FOM_{I_\theta}/\FOM_E)$ across 17 independently trained networks,
+$R=10$ replicas each.}
+\label{tab:anova}
+\begin{tabular}{lc}
+\toprule
+Quantity & Value \\
+\midrule
+Number of seeds $S$ & 17 \\
+Replicas per seed $R$ & 10 \\
+$V_{\text{across}}$ (raw, confounded) & 0.2447 \\
+$\overline{V_{\text{within}}}$ (replica noise, bootstrapped) & 0.3603 \\
+$V_{\text{between}}$ (ANOVA subtraction, floored) & 0.0000 \\
+Fraction of spread attributable to replica noise & $\geq 100\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This has a direct practical consequence for compute allocation. A $K$-network
+deep ensemble built to average over initialization variance pays $K\times$
+the (non-trivial) per-network inference cost -- direct profiling of the
+network used here shows a single forward pass over a WE population of
+$\sim$2000 walkers costs on the order of 200~ms per WE iteration on a
+single CPU core, dominated by two small convolutional layers -- to cancel a
+variance component this analysis shows is not detectably present. The
+statistically efficient use of additional compute here is more replicas per
+existing seed, not more seeds (Table~\ref{tab:allocation}), though we note
+replica cost for a learned coordinate is not free either, since each
+additional replica still pays the network's per-iteration inference cost.
+
+\begin{table}[h]
+\centering
+\caption{Predicted standard error of the pooled mean log-ratio under two
+compute-allocation strategies, from the fitted ANOVA model of
+Table~\ref{tab:anova}. The current configuration ($S=17$, $R=10$) does not
+resolve the ratio from unity; both strategies can, at different total
+compute.}
+\label{tab:allocation}
+\begin{tabular}{lcc}
+\toprule
+Strategy & Allocation & Predicted SE \\
+\midrule
+More seeds, fixed $R=10$ & $S=17$ (current) & 0.146 \\
+ & $S=50$ & 0.085 \\
+ & $S=150$ & 0.049 \\
+More replicas, fixed $S=17$ & $R=10$ (current) & 0.146 \\
+ & $R=80$ & 0.052 \\
+ & $R=320$ & 0.026 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\FloatBarrier
+
+% ============================================================================
+\section{Diagnostic 2: seed control and schedule-extension audits}\label{sec:diag2}
+
+\subsection{A silent sign reversal}
+
+The 17-seed sweep behind \S\ref{sec:diag1} exists because the project's
+first reported result for this comparison -- a single run showing the
+learned coordinate winning by $+14\%$ ($\FOM_{I_\theta}=4.811\times10^{-8}$
+vs.\ $\FOM_E = 4.215\times10^{-8}$) -- did not reproduce. A second run of the
+byte-identical configuration (same cached training labels, same
+hyperparameters) gave $\FOM_{I_\theta} = 3.484\times10^{-8}$, a $-17\%$
+\emph{loss} against the same $\FOM_E$ baseline (Table~\ref{tab:seedbug}).
+The two runs' naive-sampling and energy-baseline figures matched exactly
+across both runs; only the trained-network-dependent figure differed. The
+root cause was a missing \texttt{torch.manual\_seed()} call: the network's
+weight initialization was left to the platform's default (unseeded) random
+state, so every rerun trained a different network from the same nominal
+configuration.
+
+\begin{table}[h]
+\centering
+\caption{Two runs of an identical configuration, before the seeding fix.
+naive and $\WE[E]$ (energy-binned, no learned network) are bit-identical
+across runs; only $\WE[I_\theta]$ (learned network) differs.}
+\label{tab:seedbug}
+\begin{tabular}{lcc}
+\toprule
+Method & Run 1 FOM & Run 2 FOM \\
+\midrule
+naive & $1.476\times10^{-7}$ & $1.476\times10^{-7}$ \\
+$\WE[m]$ & $1.173\times10^{-7}$ & $1.173\times10^{-7}$ \\
+$\WE[E]$ & $4.215\times10^{-8}$ & $4.215\times10^{-8}$ \\
+$\WE[I_\theta]$ & $4.811\times10^{-8}$ ($+14\%$) & $3.484\times10^{-8}$ ($-17\%$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is a narrow, mechanical bug, but its consequence is not narrow: absent
+the second run, the project would have reported a clean single-comparison
+win as its headline learned-coordinate result. After fixing the seed and
+sweeping 17 independent initializations, point-ratio estimates for
+individual seeds range from $-52\%$ to $+112\%$ around unity -- consistent
+with the $+14\%$ and $-17\%$ single-run outcomes both being unremarkable
+draws from the same wide distribution, not evidence of a real effect in
+either direction from any one run.
+
+\subsection{Two schedule extensions independently fail to help}
+
+A natural response to a wide, centered-near-unity comparison is to ask
+whether a finer discretization or a larger sampling budget would let the
+learned coordinate's advantage (if any) emerge more clearly. Two such
+extensions were tested at a deeper rarity target (``beyond=2''), each
+against the same baselines, and each independently failed:
+
+\begin{itemize}
+\item \textbf{Finer binning} ($n_{\text{bins}}$ from 50 to 90, replicas
+fixed at 10): the learned coordinate's own relative standard deviation
+improved only marginally (0.416 $\to$ 0.395) while its cost nearly doubled
+($6.90\times10^{8} \to 1.19\times10^{9}$), so its own FOM \emph{worsened}
+($8.360\times10^{-9} \to 5.363\times10^{-9}$). The energy baseline's cost is
+structurally insensitive to bin count (it stayed exactly
+$5.45\times10^{8}$ across both configurations), because energy is a
+discrete, quantized coordinate on this lattice that saturates a small fixed
+number of occupied bins regardless of $n_{\text{bins}}$ -- extra bins can
+only add cost to the continuous learned coordinate, not help it.
+\item \textbf{Larger sampling budget} (WE iterations, $\mathtt{we\_iter}$,
+1000 to 2000, $n_{\text{bins}}=50$): cost scaled worse than the expected
+$2\times$ for every method (population grows as the run pushes further into
+the tail), and every method's FOM \emph{worsened}, the learned coordinate's
+most severely
+($\FOM_{I_\theta}: 8.360\times10^{-9} \to 1.698\times10^{-9}$, an 80\%
+drop; its own relative standard deviation \emph{increased}, 0.416 $\to$
+0.540, despite $3\times$ the sampling).
+\end{itemize}
+
+Table~\ref{tab:deadends} summarizes both. Two structurally different
+extensions, tested independently, produce the same qualitative outcome:
+neither rescues the learned coordinate at this depth, and identifying the
+cost mechanism in each case (a saturating discrete coordinate for binning; a
+population that grows faster than expected with iteration budget) rules out
+re-attempting either lever as a productive next step, rather than leaving
+the question open for a future, more expensive retry.
+
+\begin{table}[h]
+\centering
+\caption{Two schedule extensions at a fixed deeper rarity target
+(``beyond=2''), both against the same fixed baselines. Both independently
+worsen the learned coordinate's own FOM relative to its own prior value.}
+\label{tab:deadends}
+\begin{tabular}{lccc}
+\toprule
+Extension & Baseline & Extended & Change in $\FOM_{I_\theta}$ \\
+\midrule
+$n_{\text{bins}}$: 50 $\to$ 90 & $8.360\times10^{-9}$ & $5.363\times10^{-9}$ & $-36\%$ \\
+$\mathtt{we\_iter}$: 1000 $\to$ 2000 & $8.360\times10^{-9}$ & $1.698\times10^{-9}$ & $-80\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cost-corrected verdict}
+
+Reporting a training-objective comparison's cost from simulation sweeps
+alone, as in Table~\ref{tab:seedbug} and the FOM values above, is itself
+subject to the same blindness raised in \S\ref{sec:diag3}: the learned
+coordinate's repeated network inference is uncounted. Recomputing the
+17-seed sweep's pooled figure of merit using measured wall-clock time
+(mean $\WE[E]$ native-cost wall time: 397~s over 16 reconfirmed seeds)
+rather than simulation-sweep cost, with a two-level bootstrap resampling
+both the seed axis and each seed's replica axis, gives a median ratio of
+\textbf{0.405} (95\% CI $[0.268, 0.623]$, excluding unity) -- a
+statistically significant loss for the learned coordinate, in contrast to
+the simulation-sweep-cost figure, whose 95\% CI ($[0.84, 1.75]$ in the
+project's original analysis) includes unity and would be reported as
+inconclusive.
+
+% ============================================================================
+\section{Diagnostic 3: charge real inference cost, not sweep cost}\label{sec:diag3}
+
+The two diagnostics above already used wall-clock-corrected costs in their
+final reported numbers. This section states the general point explicitly
+and summarizes independent confirmation from the companion
+paper~\citep{alzaatreh2026}, which uses a different training objective
+(self-consistency, not surrogate-label) on the same system.
+
+A cost field computed as (number of Monte Carlo sweeps) $\times$ (per-sweep
+cost) is, by construction, blind to any computation that scales with WE
+\emph{iterations} rather than sweeps -- chiefly, repeated forward passes of
+a trained network used for binning. Direct instrumented profiling confirms
+this cost is real and not a batching or threading artifact: the network's
+forward pass is already correctly batched (one call per WE iteration over
+the full population, gradient tracking disabled, single-threaded as
+intended), and its cost is genuine compute-bound CPU time, dominated by two
+small convolutional layers, that scales with population size.
+
+Measured directly from production run wall-clock timestamps, the learned
+coordinate's WE stage consistently costs 3--5$\times$ the energy baseline's
+wall-clock time across every configuration tested in this project family
+(range 2.87--4.97$\times$ across more than twenty independent seed and
+disorder combinations, both training objectives). In the companion
+paper's self-consistency-based headline result, charging this real cost
+converts the comparison from favorable-looking on a count-based reliability
+metric (which is cost-independent and unaffected) to unfavorable on a
+cost-normalized efficiency metric: a wall-clock-fair figure-of-merit ratio
+of $0.33$ (95\% CI $[0.19,0.58]$)~\citep{alzaatreh2026}. The direction and
+approximate magnitude of this correction closely matches the surrogate-label
+objective's independently derived $0.405\times$ figure in
+\S\ref{sec:diag2}, despite the two training objectives, and the two
+diagnostics that produced them, being otherwise unrelated -- consistent
+with cost-blindness being a property of the cost accounting, not of either
+specific learned coordinate.
+
+% ============================================================================
+\section{An audit checklist}\label{sec:checklist}
+
+The three diagnostics above share a structure: each is a specific,
+inexpensive reanalysis of data already collected, not a request for more
+expensive simulation, and each is capable of overturning a headline
+efficiency or reliability claim on its own. We summarize them as a short
+checklist for reporting learned-coordinate rare-event sampling results.
+
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{Before ensembling networks to reduce variance, decompose the
+variance you are trying to reduce.} If a one-way (or richer) variance
+decomposition shows the between-seed component is small or zero relative to
+per-seed sampling noise, the ensemble's inference cost buys nothing, and
+additional replicas of existing networks are the more efficient use of the
+same compute (\S\ref{sec:diag1}).
+\item \textbf{Seed every stochastic component of a trained-coordinate
+pipeline, and confirm determinism by rerunning an identical configuration
+at least once before reporting a single-run result as a finding.} A cheap
+rerun is the entire cost of catching a bug capable of reversing a headline
+sign (\S\ref{sec:diag2}). Once seeded, test the schedule extensions a
+reviewer would naturally suggest (finer discretization, larger sampling
+budget); if they fail, identify the cost mechanism responsible rather than
+leaving the failure unexplained, since the mechanism determines whether the
+lever is worth retrying at a different scale.
+\item \textbf{Compute the reported figure of merit's cost term from
+measured wall-clock time for every method being compared, not from a
+simulation-sweep count that is blind to learned-component inference.} Where
+wall-clock measurement is not yet available, treat a sweep-cost-only
+comparison as provisional and flag it as such, since the correction is not
+guaranteed to be small (\S\ref{sec:diag3}).
+\end{enumerate}
+
+None of the three checks requires new expensive simulation on the scale
+of the original comparison being audited: the variance decomposition
+(\S\ref{sec:diag1}) reuses already-collected replica data; the seed audit
+(\S\ref{sec:diag2}) requires one confirmatory rerun of an existing
+configuration, cheap relative to a full sweep; and the cost correction
+(\S\ref{sec:diag3}) requires only that wall-clock time already be recorded
+(or, if not, added as a field going forward) rather than any new
+simulation. We suggest this ordering -- variance decomposition, seed and
+schedule audit, cost correction -- as a reasonable default sequence, since
+each check is comparably cheap and any one of them failing can make the
+others' outcome moot for the specific claim at hand.
+
+We do not claim these three are exhaustive, nor that every
+learned-coordinate rare-event sampling claim in the literature is subject to
+all three problems; we report only what a systematic reanalysis of one
+project's own internal history found. The consistency of direction across
+two independently developed training objectives on the same underlying
+system (\S\ref{sec:diag3}) is, however, some evidence that the cost-blindness
+problem at least is not an artifact specific to one coordinate design.
+
+% ============================================================================
+\section{Conclusions}\label{sec:conclusions}
+
+Using a fully instrumented Weighted Ensemble rare-event sampler for Ising
+and Edwards--Anderson spin systems, we showed that three inexpensive
+diagnostic checks -- a variance decomposition, a seed and schedule audit,
+and a wall-clock cost correction -- each independently change the reported
+verdict of a learned-coordinate efficiency or reliability comparison drawn
+from the same project. A 17-network ensemble's entire seed-to-seed spread
+was shown to be finite-replica noise rather than genuine initialization
+variance. An unseeded initializer silently reversed a headline result
+between two runs of an identical configuration, and once fixed, two natural
+schedule extensions were shown, with identified mechanism, to independently
+fail to rescue the comparison. Charging real wall-clock inference cost
+rather than simulation-sweep cost reversed an efficiency verdict twice, for
+two different training objectives on the same system, from an inconclusive
+or favorable-looking result to a statistically significant loss. None of
+these findings required new expensive computation; each reused data or
+compute already paid for by the underlying project. We offer the three
+checks as a short, concrete checklist that we believe should be applied
+before, not after, a learned-coordinate rare-event sampling paper's headline
+efficiency or reliability claim is finalized.
+
+% ============================================================================
+\section*{Data and Code Availability}
+The scripts implementing the three diagnostics (variance decomposition,
+seed-sweep and schedule-extension drivers, wall-clock bootstrap correction),
+along with the underlying run logs and result files referenced in
+Tables~\ref{tab:anova}--\ref{tab:deadends}, are available at
+\url{https://github.com/mzaatreh-phs/ising-transport-rare-event}, the same
+repository as the companion paper~\citep{alzaatreh2026}.
+% Optional author action before submission: add a versioned archival DOI here
+% after depositing the repository in Zenodo.
+
+\section*{Acknowledgements}
+The authors gratefully acknowledge the support of Fahad Bin Sultan
+University, Tabuk, Saudi Arabia, including access to the computational
+environment used for the numerical experiments.
+
+\printcredits
+
+\section*{Declaration of competing interest}
+The authors declare no known competing financial interests or personal
+relationships that could have appeared to influence the work reported in
+this paper.
+
+\section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
+During the preparation of this work, the authors used Claude (Anthropic) to
+assist with manuscript organization, language refinement, and software
+support. After using this tool, the authors reviewed and edited the content
+as needed, independently verified the scientific claims and numerical
+results, and take full responsibility for the content of the publication.
+
+% ============================================================================
+\begin{thebibliography}{99}
+\bibitem{huber1996} G. A. Huber, S. Kim, Weighted-ensemble Brownian dynamics
+simulations for protein association reactions, Biophys. J. 70 (1996)
+97--110.
+\bibitem{zhang2010} B. W. Zhang, D. Jasnow, D. M. Zuckerman, The ``weighted
+ensemble'' path sampling method is statistically exact for a broad class of
+stochastic processes and binning procedures, J. Chem. Phys. 132 (2010)
+054107.
+\bibitem{zuckerman2017} D. M. Zuckerman, L. T. Chong, Weighted ensemble
+simulation: review of methodology, applications, and software, Annu. Rev.
+Biophys. 46 (2017) 43--57.
+\bibitem{ising1925} E. Ising, Beitrag zur Theorie des Ferromagnetismus, Z.
+Phys. 31 (1925) 253--258.
+\bibitem{edwards1975} S. F. Edwards, P. W. Anderson, Theory of spin glasses,
+J. Phys. F: Met. Phys. 5 (1975) 965--974.
+\bibitem{hua2024} X. Hua, R. Ahmad, J. Blanchet, W. Cai, Accelerated
+sampling of rare events using a neural network bias potential,
+arXiv:2401.06936 (2024).
+\bibitem{kimcai2026} M. Kim, W. Cai, Accelerated Markov Chain Monte Carlo
+simulation via neural network-driven importance sampling, arXiv:2602.12294
+(2026).
+\bibitem{khoo2019} Y. Khoo, J. Lu, L. Ying, Solving for high-dimensional
+committor functions using artificial neural networks, Res. Math. Sci. 6
+(2019) 1.
+\bibitem{li2022} H. Li, Y. Khoo, Y. Ren, L. Ying, A semigroup method for
+high dimensional committor functions based on neural network, Proc. Mach.
+Learn. Res. 145 (2022) 598--618.
+\bibitem{kang2024} P. Kang, E. Trizio, M. Parrinello, Computing the
+committor with the committor to study the transition state ensemble, Nat.
+Comput. Sci. 4 (2024) 451--460.
+\bibitem{trizio2025} E. Trizio, P. Kang, M. Parrinello, Everything
+everywhere all at once: a probability-based enhanced sampling approach to
+rare events, Nat. Comput. Sci. 5 (2025) 582--591.
+\bibitem{efron1979} B. Efron, Bootstrap methods: another look at the
+jackknife, Ann. Statist. 7 (1979) 1--26.
+\bibitem{alzaatreh2026} M. Y. Alzaatreh, Transport-Inspired Rare-Event
+Sampling in Spin Systems: Learned Importance Improves Deep-Target
+Reliability, submitted (2026). % TODO(authors): update with journal name,
+% volume, and DOI once available; this is the companion paper referenced
+% throughout \S\ref{sec:system}--\S\ref{sec:diag3}.
+\end{thebibliography}
+
+\end{document}

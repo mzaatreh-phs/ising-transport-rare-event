@@ -15,6 +15,8 @@ project/.label_cache/
 *.abs
 project/07_paper/**/*.log
 project/07_paper/**/*.out
+project/08_paper_methods/**/*.log
+project/08_paper_methods/**/*.out
 manual.log
 manual.out
 
